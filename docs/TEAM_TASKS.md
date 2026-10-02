@@ -6,7 +6,7 @@ must come from code we actually ran.
 
 Deadline: Round 1 closes **7 Oct 2026, 11:59 PM IST**. Aim to be feature-complete by the evening of 6 Oct.
 
-Replace `@memberA` etc. with GitHub handles.
+Assignments below are a first proposal; swap areas among yourselves if you prefer, then update this file.
 
 ## Shared contracts (agree on these first, day 1)
 
@@ -19,7 +19,7 @@ Replace `@memberA` etc. with GitHub handles.
 
 Owner of the shared contracts: Member A. Others code against them.
 
-## Member A: Chemistry and Hamiltonian (`@memberA`)
+## Member A: Chemistry and Hamiltonian (`@S-tevens`)
 
 Files: `config.py`, `chemistry/`, `mapping/`, `configs/molecules/`.
 
@@ -31,7 +31,7 @@ Files: `config.py`, `chemistry/`, `mapping/`, `configs/molecules/`.
 
 Done when: those tests pass.
 
-## Member B: Ansatz, optimizers, VQE loop (`@memberB`)
+## Member B: Ansatz, optimizers, VQE loop (`@jeev-69`)
 
 Files: `ansatz/`, `optim/`, `vqe/runner.py`, `backends/ideal.py`.
 
@@ -43,7 +43,7 @@ Files: `ansatz/`, `optim/`, `vqe/runner.py`, `backends/ideal.py`.
 
 Done when: `miraichem run ... --backend ideal` produces a correct H2 result JSON.
 
-## Member C: Noisy backends, mitigation, hardware (`@memberC`)
+## Member C: Noisy backends, mitigation, hardware (`@ritesh9116`)
 
 Files: `backends/noisy.py`, `backends/hardware.py`, `mitigation/`.
 
@@ -56,7 +56,7 @@ Files: `backends/noisy.py`, `backends/hardware.py`, `mitigation/`.
 
 Done when: a noisy H2 run is reproducible and a hardware dry run prints its estimate and aborts safely.
 
-## Member D: Benchmark, dashboard, docs (`@memberD`)
+## Member D: Benchmark, dashboard, docs (`@rohithrajha`)
 
 Files: `benchmark/`, `analysis/`, `cli.py`, `dashboard/`, `notebooks/`, `docs/`, `README.md`.
 
