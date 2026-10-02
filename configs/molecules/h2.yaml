@@ -1,0 +1,6 @@
+# H2 in STO-3G, full space (4 qubits with Jordan-Wigner). Equilibrium bond length ~0.735 A.
+name: H2
+geometry: "H 0 0 0; H 0 0 {bond_length}"
+basis: sto3g
+charge: 0
+spin: 0

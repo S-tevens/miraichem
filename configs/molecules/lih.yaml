@@ -1,0 +1,11 @@
+# LiH in STO-3G with a 2-electron, 3-orbital active space (6 qubits JW, 4 with parity).
+# Active MOs (0-based): 1 = 2sigma bonding, 2 = 3sigma, 5 = 4sigma. The Li 1s core (MO 0) is frozen;
+# the degenerate pi orbitals (3, 4) are skipped because they cannot mix by symmetry.
+# Equilibrium bond length ~1.595 A. See docs/DECISIONS.md.
+name: LiH
+geometry: "Li 0 0 0; H 0 0 {bond_length}"
+basis: sto3g
+charge: 0
+spin: 0
+active_electrons: 2
+active_orbitals: [1, 2, 5]
