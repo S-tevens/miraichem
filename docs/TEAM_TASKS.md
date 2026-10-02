@@ -4,7 +4,7 @@ Four owners, one per area. Everyone commits their own work under their own name,
 `main`, and gets one review from a teammate. Every number in docs, notebooks and the dashboard
 must come from code we actually ran.
 
-Deadline: Round 1 closes **7 Oct 2026, 11:59 PM IST**. Aim to be feature-complete by the evening of 6 Oct.
+Deadline: Round 1 closes **7 Oct 2026, 11:59 PM IST**. Target: feature-complete by the evening of **5 Oct**; 6-7 Oct are for docs, video and submission buffer.
 
 Assignments below are a first proposal; swap areas among yourselves if you prefer, then update this file.
 
@@ -70,14 +70,16 @@ Done when: dashboard renders from saved results end to end.
 
 ## Timeline
 
-| Date | Goal |
-|------|------|
-| 2 Oct | Repo, environment, Hamiltonian spike; contracts agreed |
-| 3 Oct | Chemistry and Hamiltonian tests green; ansatz and optimizers started |
-| 4 Oct | Ideal and noisy VQE working; metrics and ranking on synthetic data |
-| 5 Oct | Mitigation and sweeps; hardware gate in place; dashboard skeleton |
-| 6 Oct | Hardware run (with team confirmation), curves, dashboard complete |
-| 7 Oct | Polish, video, fresh-clone test, submission |
+| Day | Goal | Owners | Done when |
+|-----|------|--------|-----------|
+| Fri 2 Oct | Environment and compatibility checks (Qiskit Nature vs OpenFermion). Shared contracts agreed (`config.py`, `QubitProblem`, `RunResult`). H2 spike matches FCI. | @S-tevens leads. @jeev-69, @ritesh9116, @rohithrajha accept the invite, read the contracts, set up environments. | Spike prints matching energies |
+| Sat 3 Oct | Chemistry and Hamiltonian tests green (H2, LiH, both mappers). Ideal VQE running. Aer noise model built. Metrics, ranking, storage written against synthetic data. | @S-tevens: chemistry and Hamiltonian. @jeev-69: ansatz, optimizers, runner. @ritesh9116: noisy backend. @rohithrajha: metrics, ranking, storage. | `miraichem run` gives a correct ideal H2 result JSON |
+| Sun 4 Oct | Noisy VQE reproducible. Readout mitigation and ZNE working. Sweep and CLI working. `quick_h2` and `full_h2` sweeps run. Hardware gate written, dry run only. | @jeev-69: LiH runs. @ritesh9116: mitigation and hardware gate. @rohithrajha: sweep, CLI, leaderboard. @S-tevens: integration and review. | Leaderboard and recommendation built from real simulator results |
+| Mon 5 Oct | Hardware run for the best H2 configs (with team confirmation). Dissociation curve. Dashboard complete. `full_lih` sweep if time allows. Demo notebook. | @ritesh9116: hardware. @S-tevens: curves. @rohithrajha: dashboard and notebook. @jeev-69: LiH sweep and test fixes. | Dashboard shows all real results end to end |
+| Tue 6 Oct | Docs and RESULTS.md from real data. Fresh-clone test. Figures for slides. Slides drafted, demo video recorded. | Everyone, @rohithrajha leads | A judge can clone and run the demo from the README |
+| Wed 7 Oct | Buffer only: re-record video if needed, final push, submit well before 11:59 PM IST. | Everyone | Submitted by afternoon |
+
+Risks: submit hardware jobs on 4 Oct so Monday only collects results (queue times). If the LiH active space takes too long, ship H2 fully and present LiH as an extra.
 
 ## Workflow
 
