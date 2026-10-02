@@ -39,3 +39,27 @@ openfermion 1.8.1, numpy 2.2.6, scipy 1.17.1.
 
 - ZNE on Aer: `mitiq` (installs fine) vs Runtime resilience options. To be tested by the mitigation owner.
 - IBM account allowance: needs the team's API token; not yet checked.
+
+## 2026-10-02: LiH active space = 2 electrons in 3 orbitals, MOs [1, 2, 5]
+
+- **Decision:** freeze the Li 1s core (MO 0) and keep MOs 1, 2, 5 (the sigma orbitals: bonding 2sigma, 3sigma, 4sigma) with 2 electrons.
+  That is 6 qubits with Jordan-Wigner, 4 with Parity (two-qubit reduction).
+- **Evidence** (PySCF, STO-3G, total energies in Ha, CASCI vs full FCI):
+
+  | R (A) | HF | CASCI(2e,[1,2,5]) | CASCI(2e,[1,2]) | full FCI |
+  |---|---|---|---|---|
+  | 1.000 | -7.767362 | -7.782242 | -7.767497 | -7.784460 |
+  | 1.595 | -7.862024 | -7.881145 | -7.862286 | -7.882402 |
+  | 2.500 | -7.770874 | -7.823077 | -7.773544 | -7.823724 |
+
+- **Alternatives:** (2e, 2 orbitals [1,2]) is only 4 qubits but recovers almost none of the correlation
+  (0.3 mHa of ~20 mHa), so VQE would have nothing to find. Adding the pi orbitals [1,2,3,4,5] (10 qubits) gains only ~1 mHa more.
+  The default "orbitals centred on the HOMO-LUMO gap" would pick a pi orbital, which cannot mix with the sigma orbitals by symmetry.
+- **Caveat:** VQE results for LiH are compared with CASCI in the same active space, not with full FCI. At equilibrium the
+  active-space CASCI is 1.3 mHa above full FCI.
+
+## 2026-10-02: Exact-energy helper uses a particle-number penalty
+
+- The qubit Hamiltonian has eigenstates with the wrong electron count. `exact_ground_energy` adds
+  `50 * (N - N_target)^2` (built with the same mapper) and verifies the ground state has N_target electrons.
+  Works for Jordan-Wigner and Parity without special-casing bit patterns.
