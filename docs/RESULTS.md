@@ -121,6 +121,30 @@ Pareto marks: S = on the error-vs-shots front, G = on the error-vs-two-qubit-gat
 
 These numbers come from **real IBM quantum hardware**. Each row re-evaluates the optimal parameters of a saved simulator run on the device (fixed-parameter evaluation, no optimisation on hardware).
 
+**H2** at 0.735 A on `ibm_fez`, 4096 shots per circuit (source simulator run `0db149ee8c38`).
+
+| Source | Energy (Ha) | Error (mHa) | Kind |
+|---|---|---|---|
+| Exact | -1.137306 | 0 | reference |
+| Ideal circuit at these parameters | -1.133399 | 3.91 | noiseless simulation |
+| Noisy simulator (readout) | -1.135716 | 1.59 | simulator |
+| Hardware (none) | -1.061153 | 76.2 | real device, job `db0jceeegvvc73bgdasg` |
+| Hardware (readout) | -1.124884 | 12.4 | real device, job `db0jchpb694s73dr2dvg` |
+| Hardware (zne) | -1.063841 | 73.5 | real device, job `db0jco6egvvc73bgdbe0` |
+| Hardware (readout+zne) | -1.132144 | 5.16 | real device, job `db0jct3id5ic73ept840` |
+
+**H2** at 0.735 A on `ibm_fez`, 4096 shots per circuit (source simulator run `4851787063fb`).
+
+| Source | Energy (Ha) | Error (mHa) | Kind |
+|---|---|---|---|
+| Exact | -1.137306 | 0 | reference |
+| Ideal circuit at these parameters | -1.136865 | 0.441 | noiseless simulation |
+| Noisy simulator (readout+zne) | -1.136729 | 0.577 | simulator |
+| Hardware (none) | -1.052856 | 84.5 | real device, job `db0jbi3id5ic73ept53g` |
+| Hardware (readout) | -1.111603 | 25.7 | real device, job `db0jbnjid5ic73ept5j0` |
+| Hardware (zne) | -1.063667 | 73.6 | real device, job `db0jbu3id5ic73ept5ug` |
+| Hardware (readout+zne) | -1.134285 | 3.02 | real device, job `db0jc2pb694s73dr2cug` |
+
 **H2** at 0.735 A on `ibm_marrakesh`, 1024 shots per circuit (source simulator run `ee9b195bf2ec`).
 
 | Source | Energy (Ha) | Error (mHa) | Kind |
