@@ -1,0 +1,22 @@
+# Extended noisy LiH benchmark (2 electrons in 3 orbitals, equilibrium 1.595 A). Complements
+# full_lih.yaml, whose noisy part covers only COBYLA with no/readout+zne mitigation.
+# Parity mapping only: 4 qubits, far cheaper to simulate than Jordan-Wigner (see DECISIONS.md).
+#   - UCCSD (reps 1) with COBYLA; SPSA is skipped for UCCSD because 300 noisy evaluations of a
+#     200-gate circuit take far too long.
+#   - HEA reps 1 and 2 with COBYLA and SPSA.
+#   - all four mitigation modes and two shot budgets.
+# 40 runs; about 15-20 minutes with --max-workers 4. Runs shared with full_lih are reused (cached).
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [uccsd, hea]
+ansatz_reps: [1, 2]
+optimizers: [cobyla, spsa]
+maxiter: 300
+backends: [noisy]
+shots: [1024, 4096]
+mitigations: [none, readout, zne, readout+zne]
+seed: 42
+exclude:
+  - {ansatz: uccsd, ansatz_reps: 2}
+  - {ansatz: uccsd, optimizer: spsa}

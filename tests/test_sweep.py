@@ -76,7 +76,8 @@ def test_cached_result_missing_returns_none(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "name,expected", [("quick_h2", 12 + 4), ("full_h2", None), ("full_lih", 18 + 4)]
+    "name,expected",
+    [("quick_h2", 12 + 4), ("full_h2", None), ("full_lih", 18 + 4), ("lih_noisy_extended", 40)],
 )
 def test_shipped_sweep_configs_load(name, expected):
     sweep = load_sweep_config(ROOT / "configs" / "sweeps" / f"{name}.yaml")

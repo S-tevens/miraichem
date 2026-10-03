@@ -120,3 +120,32 @@ Sweep: `configs/sweeps/full_lih.yaml` (22 runs, 0 failed, about 6.5 min with 4 w
 180 s, so the noisy part of the LiH sweep is limited to Parity, COBYLA, reps 1. Parity is also faster on the ideal backend.
 **Conclusion for the benchmark:** on LiH, UCCSD (with the Parity mapping) is the only configuration that can reach chemical
 accuracy, and only on an ideal backend; no tested configuration is close on the noisy simulator.
+
+## 2026-10-03: Extended noisy LiH sweep (resolves the open HEA question)
+
+Sweep: `configs/sweeps/lih_noisy_extended.yaml`, 40 runs (0 failed, about 21.5 min with 4 workers), noisy FakeSherbrooke, Parity
+mapping, shots 1024 and 4096, all four mitigation modes, maxiter 300, seed 42 (one seed per configuration).
+Best error per group, in mHa (nothing reaches chemical accuracy, 1.6 mHa):
+
+| Ansatz | Optimizer | none | readout | zne | readout+zne | Two-qubit gates |
+|---|---|---|---|---|---|---|
+| UCCSD (reps 1) | COBYLA | 517.5 | 488.7 | 340.5 | 366.1 | 203 |
+| HEA reps 1 | COBYLA | 895.4 | 900.7 | 900.6 | 906.8 | 3 |
+| HEA reps 1 | SPSA | 61.3 | **36.6** | 71.3 | 57.9 | 3 |
+| HEA reps 2 | COBYLA | 552.5 | 521.7 | 532.8 | 509.0 | 6 |
+| HEA reps 2 | SPSA | 119.6 | 341.4 | 105.7 | 653.8 | 6 |
+
+- **The earlier "noisy HEA is stuck near 900 mHa" finding is an optimizer problem, not noise.** COBYLA stops after about 95 evaluations
+  (HEA reps 1) and ends at about 900 mHa whatever the mitigation; SPSA with the same ansatz, circuit and noise reaches 37 to 71 mHa using
+  its full 301-evaluation budget. COBYLA's trust-region stopping rule fires early on the noisy, shot-limited objective. For noisy runs, SPSA
+  is the right default for HEA.
+- **UCCSD is limited by circuit depth, not by the optimizer.** 203 two-qubit gates and depth 927 leave it 340 to 517 mHa off. ZNE helps it
+  most (517 to 341 mHa, about 34%); readout alone helps little (517 to 489).
+- **Mitigation is not uniformly helpful.** For HEA reps 2 with SPSA the spread across modes (106 to 654 mHa) is as large as any mitigation
+  effect, so with one seed per configuration these differences are not statistically resolved. The best HEA result (readout, 36.6 mHa) is
+  not evidence that readout mitigation beats ZNE for LiH.
+- **More shots did not change the picture.** The top three runs mix 1024 and 4096 shots.
+- **Conclusion for LiH:** within the tested set no configuration reaches chemical accuracy on the noisy simulator. The shallow HEA with SPSA
+  is closest (about 37 to 71 mHa), and UCCSD is accurate only on the ideal backend. Multi-seed replication would be needed before ranking
+  the mitigation modes against each other.
+- **Caveat:** seed and `maxiter` are fixed in this sweep; shot noise alone can move a result by tens of mHa for SPSA runs.
