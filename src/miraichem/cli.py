@@ -83,6 +83,8 @@ def run(
     table.add_row("VQE energy (Ha)", f"{result.e_vqe:.6f}")
     table.add_row("Exact energy (Ha)", f"{result.e_exact:.6f}")
     table.add_row("HF energy (Ha)", f"{result.e_hf:.6f}")
+    if result.e_vqe_unmitigated is not None:
+        table.add_row("Unmitigated energy (Ha)", f"{result.e_vqe_unmitigated:.6f}")
     table.add_row("Error (mHa)", f"{result.abs_error_mha:.3f}")
     table.add_row("Chemical accuracy", "yes" if result.within_chemical_accuracy else "no")
     table.add_row("Evaluations", str(result.n_function_evals))

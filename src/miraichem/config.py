@@ -86,7 +86,18 @@ class RunConfig(BaseModel):
     fake_backend_name: str = "FakeSherbrooke"
     shots: int = Field(4096, ge=1)
     mitigation: MitigationKind = "none"
+    zne_scales: list[float] = Field(
+        default_factory=lambda: [1.0, 3.0],
+        description="Two-qubit-gate noise scale factors for ZNE (first must be 1).",
+    )
+    zne_method: Literal["linear", "richardson"] = "linear"
     seed: int = 42
+
+    @model_validator(mode="after")
+    def _check_zne(self) -> RunConfig:
+        if "zne" in self.mitigation and (len(self.zne_scales) < 2 or self.zne_scales[0] != 1.0):
+            raise ValueError("zne_scales needs at least two values and must start with 1.")
+        return self
 
     @model_validator(mode="after")
     def _check_combo(self) -> RunConfig:

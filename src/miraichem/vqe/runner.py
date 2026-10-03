@@ -24,6 +24,7 @@ from miraichem.benchmark.metrics import abs_error_mha, within_chemical_accuracy
 from miraichem.chemistry.classical import compute_reference
 from miraichem.config import RunConfig
 from miraichem.mapping.hamiltonian import build_qubit_hamiltonian
+from miraichem.mitigation.mitigated import MitigatedBackend
 from miraichem.optim.optimizers import initial_point, minimize
 from miraichem.vqe.result import RunResult
 
@@ -54,12 +55,13 @@ def git_commit() -> str | None:
 
 def make_backend(cfg: RunConfig) -> EnergyBackend:
     """Create the energy backend for a run config."""
-    if cfg.mitigation != "none":
-        raise NotImplementedError("Error mitigation is not implemented yet.")
     if cfg.backend == "ideal":
         return IdealBackend()
     if cfg.backend == "noisy":
-        return NoisyBackend(cfg.fake_backend_name, cfg.shots, cfg.seed)
+        noisy = NoisyBackend(cfg.fake_backend_name, cfg.shots, cfg.seed)
+        if cfg.mitigation == "none":
+            return noisy
+        return MitigatedBackend(noisy, cfg.mitigation, cfg.zne_scales, cfg.zne_method)
     raise NotImplementedError(f"Backend {cfg.backend!r} is not implemented yet.")
 
 
@@ -89,9 +91,14 @@ def _run(cfg: RunConfig, result: RunResult, backend: EnergyBackend, start: float
     ansatz = build_ansatz(cfg.ansatz, problem, cfg.ansatz_reps)
     circuit, hamiltonian = ansatz.circuit, problem.hamiltonian
 
+    unmitigated: list[float] = []
+
     def energy(theta: np.ndarray) -> float:
         # Total energy = <H_qubit> + constant shift (nuclear repulsion, frozen core).
-        return backend.estimate(circuit, hamiltonian, theta).value + problem.energy_shift
+        est = backend.estimate(circuit, hamiltonian, theta)
+        if "unmitigated" in est.metadata:
+            unmitigated.append(est.metadata["unmitigated"] + problem.energy_shift)
+        return est.value + problem.energy_shift
 
     x0 = initial_point(ansatz.num_parameters, cfg.seed)
     opt = minimize(cfg.optimizer, energy, x0, cfg.maxiter, cfg.seed)
@@ -107,9 +114,12 @@ def _run(cfg: RunConfig, result: RunResult, backend: EnergyBackend, start: float
     result.n_function_evals = opt.nfev + 1
     result.total_shots = backend.total_shots
     result.convergence_trace = opt.trace + [e_final]
+    if unmitigated:
+        result.convergence_trace_unmitigated = unmitigated
+        result.e_vqe_unmitigated = unmitigated[-1]  # raw energy at the final (reported) evaluation
     result.optimal_parameters = [float(v) for v in opt.x]
     result.backend_info = backend.info()
-    if isinstance(backend, NoisyBackend):
+    if isinstance(backend, NoisyBackend | MitigatedBackend):
         metrics = backend.transpiled_metrics(circuit, hamiltonian)
         result.transpiled_depth = metrics["transpiled_depth"]
         result.two_qubit_gates = metrics["two_qubit_gates"]

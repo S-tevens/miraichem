@@ -34,6 +34,7 @@ class RunResult(BaseModel):
     wall_time_s: float | None = None
 
     convergence_trace: list[float] = []  # total energy of every evaluation, in order
+    convergence_trace_unmitigated: list[float] = []  # raw energies, when mitigation is on
     optimal_parameters: list[float] = []
     backend_info: dict[str, Any] = {}
     job_ids: list[str] = []

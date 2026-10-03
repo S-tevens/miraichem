@@ -63,3 +63,22 @@ openfermion 1.8.1, numpy 2.2.6, scipy 1.17.1.
 - The qubit Hamiltonian has eigenstates with the wrong electron count. `exact_ground_energy` adds
   `50 * (N - N_target)^2` (built with the same mapper) and verifies the ground state has N_target electrons.
   Works for Jordan-Wigner and Parity without special-casing bit patterns.
+
+## 2026-10-02: Mitigation implemented in-house (readout correction + gate-folding ZNE), not mitiq
+
+- **Decision:** the noisy simulator runs its own measurement pipeline (grouped Pauli measurements, raw counts) and
+  mitigation lives in `mitigation/readout.py` and `mitigation/zne.py`. `mitiq` stays installed as a possible cross-check.
+- **Why not the ready-made Estimator:** Qiskit's `BackendEstimatorV2` hides the raw counts that readout correction needs.
+  Aer's own `EstimatorV2` returns exact expectation values plus Gaussian noise, so it has no real readout error or shot noise.
+- **Why not mitiq for ZNE:** mitiq folds with `circuit.inverse()`, which produces gates (`sxdg`) outside the device gate set;
+  on Aer those would run noise-free or be re-optimised away, so the noise scaling would be wrong. Our folding repeats only
+  two-qubit gates (`ecr`/`cz`/`cx`, all self-inverse: G -> G G G), which dominate error on IBM chips. A "scale factor" is
+  therefore the multiple of two-qubit-gate noise. Partial folding gives fractional scales. Only the ansatz is folded, not
+  the final basis-change gates.
+- **Readout:** per-qubit confusion matrices from two calibration circuits (all |0>, all |1>), inverted on each group's
+  outcome distribution (tensored model). Calibration shots are counted in `total_shots`.
+- **ZNE:** default scales [1, 3], linear fit; Richardson available. Statistical error follows from the extrapolation weights.
+  Variances are taken from the raw distributions (an approximation when readout correction is on).
+- **Hardware:** on real devices prefer Runtime's built-in resilience options; the `EnergyBackend` interface is unchanged.
+- **Validation:** tests check that the noiseless pipeline equals the exact statevector (X/Y/Z bases), that readout correction
+  removes a readout-only noise model, that ZNE moves a device-noise energy toward the ideal value, and that folding preserves the unitary.

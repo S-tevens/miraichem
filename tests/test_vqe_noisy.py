@@ -55,10 +55,7 @@ def test_noisy_energy_is_physical(h2):
 
 def test_trimmed_noise_model_matches_full(h2):
     """Trimming the noise model to used qubits (a speed-up) must not change the physics."""
-    import math
-
     import numpy as np
-    from qiskit.primitives import BackendEstimatorV2
 
     from miraichem.ansatz import build_ansatz
     from miraichem.backends.noisy import NoisyBackend
@@ -66,12 +63,12 @@ def test_trimmed_noise_model_matches_full(h2):
 
     problem = build_qubit_hamiltonian(h2, 0.735)
     circuit = build_ansatz("uccsd", problem).circuit
-    theta = np.array([0.05, 0.1, -0.2])
     backend = NoisyBackend("FakeSherbrooke", shots=2048, seed=3)
-    _, isa, obs, _ = backend._prepare(circuit, problem.hamiltonian)
-    trimmed = backend.estimate(circuit, problem.hamiltonian, theta).value
-    full = BackendEstimatorV2(
-        backend=backend._sim,
-        options={"default_precision": 1 / math.sqrt(2048), "seed_simulator": 3},
-    )
-    assert float(full.run([(isa, obs, theta)]).result()[0].data.evs) == pytest.approx(trimmed)
+    prepared = backend.prepare(circuit, problem.hamiltonian)
+    bound = [
+        qc.assign_parameters(np.array([0.05, 0.1, -0.2])) for qc in backend.templates(prepared, 1.0)
+    ]
+    trimmed = backend._run_sim.run(bound, shots=2048, seed_simulator=11).result()
+    full = backend._sim.run(bound, shots=2048, seed_simulator=11).result()
+    for i in range(len(bound)):
+        assert trimmed.get_counts(i) == full.get_counts(i)
