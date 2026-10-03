@@ -10,6 +10,12 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from miraichem.analysis.dissociation import (
+    compute_curve,
+    describe_config,
+    plot_curve_png,
+    save_curve,
+)
 from miraichem.backends.hardware import (
     DEFAULT_HARDWARE_DIR,
     HardwareAbortedError,
@@ -170,6 +176,53 @@ def rank(
     console.print(table)
     console.print("Pareto: S = error vs shots front, G = error vs two-qubit gates front.\n")
     console.print(rec.justification)
+
+
+@app.command()
+def curve(
+    molecule: Annotated[Path, typer.Option(help="Molecule YAML")],
+    config_hash: Annotated[
+        str | None, typer.Option(help="Saved run whose configuration to scan; default: recommended")
+    ] = None,
+    backend: Annotated[
+        str, typer.Option(help="Used with the recommendation (ideal | noisy)")
+    ] = "ideal",
+    bond_lengths: Annotated[
+        str | None, typer.Option(help="Comma-separated Angstrom values")
+    ] = None,
+    max_workers: int = 1,
+    force: bool = False,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    output_dir: Path = Path("docs/figures"),
+) -> None:
+    """Scan a configuration over bond lengths and plot HF vs VQE vs exact (PNG + saved data)."""
+    mol = _load_molecule(molecule)
+    if config_hash:
+        base = load_source_run(config_hash, mol.name, results_dir).config
+    else:
+        try:
+            base = recommend(
+                load_all_results(results_dir, mol.name), mol.name, backend
+            ).best.result.config
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1) from exc
+    lengths = [float(x) for x in bond_lengths.split(",")] if bond_lengths else None
+    result_curve = compute_curve(base, lengths, results_dir, force, max_workers, show_progress=True)
+    data_path = save_curve(result_curve, results_dir)
+    png = plot_curve_png(
+        result_curve,
+        output_dir / f"dissociation_{mol.name.lower()}_{base.backend}_{base.config_hash()}.png",
+    )
+    worst = result_curve.max_vqe_error_mha
+    console.print(
+        f"{mol.name}: {describe_config(base)}\n"
+        f"  points: {len(result_curve.bond_lengths)} ({len(result_curve.failed)} failed), "
+        f"within chemical accuracy at {result_curve.fraction_chemically_accurate:.0%} of them, "
+        f"worst VQE error {worst:.3g} mHa vs worst HF error "
+        f"{max(result_curve.hf_error_mha):.3g} mHa\n"
+        f"  figure: {png}\n  data: {data_path}"
+    )
 
 
 def _print_plan(plan: HardwarePlan) -> None:
