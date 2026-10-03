@@ -31,6 +31,7 @@ from miraichem.backends.hardware_eval import (
     save_hardware_result,
 )
 from miraichem.benchmark.ranking import Weights, recommend
+from miraichem.benchmark.ranking_scan import recommend_across_scan
 from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, load_all_results, save_result
 from miraichem.benchmark.sweep import load_sweep_config, run_sweep
 from miraichem.chemistry.classical import compute_reference
@@ -148,10 +149,17 @@ def rank(
     weight_gates: float = 0.2,
     weight_shots: float = 0.1,
     results_dir: Path = DEFAULT_RESULTS_DIR,
+    scan: Annotated[
+        bool,
+        typer.Option(help="Rank across bond-length scans (worst case) instead of one geometry"),
+    ] = False,
 ) -> None:
     """Rank saved runs for a molecule and backend and print the recommended configuration."""
     results = load_all_results(results_dir, molecule)
     weights = Weights(weight_accuracy, weight_gates, weight_shots)
+    if scan:
+        _rank_scan(results, molecule, backend, weights, top)
+        return
     try:
         rec = recommend(results, molecule, backend, weights, bond_length)
     except ValueError as exc:
@@ -175,6 +183,30 @@ def rank(
         )
     console.print(table)
     console.print("Pareto: S = error vs shots front, G = error vs two-qubit gates front.\n")
+    console.print(rec.justification)
+
+
+def _rank_scan(results: list, molecule: str, backend: str, weights: Weights, top: int) -> None:
+    try:
+        rec = recommend_across_scan(results, molecule, backend, weights)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    table = Table(title=f"{molecule} on {backend}: scan leaderboard (top {top} of {rec.n_configs})")
+    for col in ("#", "Configuration", "Points", "Worst mHa", "Mean mHa", "Coverage", "Score"):
+        table.add_column(col, justify="left" if col == "Configuration" else "right")
+    for s in rec.ranked[:top]:
+        table.add_row(
+            str(s.rank),
+            s.label,
+            str(len(s.bond_lengths)),
+            f"{s.worst_error_mha:.3g}",
+            f"{s.mean_error_mha:.3g}",
+            f"{s.coverage:.0%}",
+            f"{s.score:.3f}",
+        )
+    console.print(table)
+    console.print("Coverage = share of scanned bond lengths within chemical accuracy (1.6 mHa).\n")
     console.print(rec.justification)
 
 
