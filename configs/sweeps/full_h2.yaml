@@ -1,0 +1,16 @@
+# Full H2 benchmark at equilibrium (0.735 A): every mapping, ansatz, depth, optimizer, mitigation
+# and two shot budgets on the noisy simulator. Expect roughly 10-20 minutes with --max-workers 4.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [jordan_wigner, parity]
+ansatzes: [uccsd, hea]
+ansatz_reps: [1, 2]
+optimizers: [cobyla, spsa, lbfgsb]
+maxiter: 150
+backends: [ideal, noisy]
+shots: [1024, 4096]
+mitigations: [none, readout, zne, readout+zne]
+seed: 42
+exclude:
+  # UCCSD reps beyond 1 add depth, not new physics, for a 2-orbital molecule.
+  - {ansatz: uccsd, ansatz_reps: 2}

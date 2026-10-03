@@ -1,0 +1,18 @@
+# Tiny H2 sweep for the demo and CI: finishes in about two minutes with --max-workers 4.
+# Ideal backend: both mappings x both ansatzes x three optimizers. Noisy backend: Jordan-Wigner,
+# COBYLA, with and without mitigation, on the noise model of FakeSherbrooke.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [jordan_wigner, parity]
+ansatzes: [uccsd, hea]
+ansatz_reps: [1]
+optimizers: [cobyla, spsa, lbfgsb]
+maxiter: 80
+backends: [ideal, noisy]
+shots: [1024]
+mitigations: [none, readout+zne]
+seed: 42
+exclude:
+  # Keep the noisy part small: Jordan-Wigner and COBYLA only.
+  - {backend: noisy, mapping: parity}
+  - {backend: noisy, optimizer: spsa}

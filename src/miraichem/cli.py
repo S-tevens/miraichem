@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, save_result
+from miraichem.benchmark.sweep import load_sweep_config, run_sweep
 from miraichem.chemistry.classical import compute_reference
 from miraichem.config import MoleculeConfig, RunConfig
 from miraichem.vqe.runner import run_vqe
@@ -91,6 +92,27 @@ def run(
     table.add_row("Wall time (s)", f"{result.wall_time_s:.1f}")
     console.print(table)
     console.print(f"Saved to {path}")
+
+
+@app.command()
+def sweep(
+    config: Annotated[Path, typer.Argument(help="Sweep YAML, e.g. configs/sweeps/quick_h2.yaml")],
+    force: Annotated[bool, typer.Option(help="Rerun even if a result is already saved")] = False,
+    max_workers: Annotated[int, typer.Option(help="Parallel processes (simulator runs)")] = 1,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+) -> None:
+    """Run every configuration in a sweep; saved results are skipped unless --force."""
+    sweep_cfg = load_sweep_config(config)
+    summary = run_sweep(sweep_cfg, results_dir, force=force, max_workers=max_workers)
+    console.print(
+        f"[bold]{summary.n_total}[/bold] runs: {summary.n_ran} ran "
+        f"({summary.n_failed} failed), {summary.n_cached} cached. Results in {results_dir}/"
+    )
+    for r in summary.results:
+        if r.status == "failed":
+            console.print(f"[red]failed[/red] {r.config_hash}: {r.error_message}")
+    if summary.n_failed:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

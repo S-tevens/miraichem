@@ -137,6 +137,8 @@ class SweepConfig(BaseModel):
     fake_backend_name: str = "FakeSherbrooke"
     shots: list[int] = [4096]
     mitigations: list[MitigationKind] = ["none"]
+    zne_scales: list[float] = [1.0, 3.0]
+    zne_method: Literal["linear", "richardson"] = "linear"
     seed: int = 42
     exclude: list[dict[str, Any]] = Field(
         default_factory=list,
@@ -159,6 +161,8 @@ class SweepConfig(BaseModel):
         for bl, mp, an, reps, opt, be, sh, mit in grid:
             if invalid_combination(opt, be, mit):
                 continue
+            if be == "ideal" and sh != self.shots[0]:
+                continue  # shot count is irrelevant for exact simulation: keep one copy only
             fields: dict[str, Any] = dict(
                 molecule=self.molecule,
                 bond_length=bl,
@@ -171,6 +175,8 @@ class SweepConfig(BaseModel):
                 fake_backend_name=self.fake_backend_name,
                 shots=sh,
                 mitigation=mit,
+                zne_scales=self.zne_scales,
+                zne_method=self.zne_method,
                 seed=self.seed,
             )
             if any(all(fields.get(k) == v for k, v in rule.items()) for rule in self.exclude):
