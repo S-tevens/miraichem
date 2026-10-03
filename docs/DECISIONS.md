@@ -82,3 +82,41 @@ openfermion 1.8.1, numpy 2.2.6, scipy 1.17.1.
 - **Hardware:** on real devices prefer Runtime's built-in resilience options; the `EnergyBackend` interface is unchanged.
 - **Validation:** tests check that the noiseless pipeline equals the exact statevector (X/Y/Z bases), that readout correction
   removes a readout-only noise model, that ZNE moves a device-noise energy toward the ideal value, and that folding preserves the unitary.
+
+## 2026-10-03: LiH verification (2e, 3 orbitals, 1.595 A, STO-3G; error vs CASCI in the same active space)
+
+Sweep: `configs/sweeps/full_lih.yaml` (22 runs, 0 failed, about 6.5 min with 4 workers). Chemical accuracy = error below 1.6 mHa.
+
+**Ideal backend (exact statevector, 300 evaluation budget)**
+
+| Ansatz | Parameters | Result |
+|---|---|---|
+| UCCSD, reps 1 | 8 (both mappings) | **Reaches chemical accuracy with every optimizer** and both mappings: COBYLA 0.00, L-BFGS-B 0.00, SPSA 0.09 mHa. Parity needs fewer qubits (4 vs 6) and runs about 3x faster. |
+| HEA, reps 1 | 24 (JW) / 16 (Parity) | Never reaches chemical accuracy. Best 19.1 mHa (Parity, COBYLA). JW ranges from 20 to 362 mHa depending on the optimizer. |
+| HEA, reps 2 | 36 (JW) / 24 (Parity) | Worse than reps 1 at the same budget (35 to 667 mHa): more parameters, same evaluations. |
+
+- L-BFGS-B is the best optimizer for UCCSD (127 evaluations) but gets trapped in local minima for HEA (362 and 583 mHa on JW).
+- HEA results depend strongly on the optimizer and budget; none of the 12 ideal HEA runs reached chemical accuracy.
+- The HEA starts from the HF state followed by CNOTs, which moves it away from HF (with Jordan-Wigner the CNOT chain
+  maps |0101> to |1111> for H2). This is a likely cause of the poor HEA numbers and is worth fixing or documenting
+  before presenting HEA as a baseline.
+
+**Noisy simulator (FakeSherbrooke noise, Parity mapping, COBYLA, 1024 shots)**
+
+| Ansatz | Mitigation | Error (mHa) | Two-qubit gates | Transpiled depth |
+|---|---|---|---|---|
+| UCCSD | none | 556.6 | 203 | 927 |
+| UCCSD | readout+zne | 366.5 | 203 | 927 |
+| HEA | none | 895.5 | 3 | 19 |
+| HEA | readout+zne | 906.8 | 3 | 19 |
+
+- LiH UCCSD is far too deep for current noise levels (203 two-qubit gates): mitigation cuts the error by about 34% but it stays
+  hundreds of mHa from chemical accuracy.
+- HEA has only 3 two-qubit gates, yet its noisy error (about 900 mHa) is much worse than its ideal error (19 mHa) and
+  mitigation does not help. The cause is not yet diagnosed. COBYLA stopped after about 93 evaluations (the ideal run used 301),
+  so premature termination under shot noise is one suspect; this needs a follow-up (more shots, different optimizer).
+
+**Feasibility.** Noisy Jordan-Wigner UCCSD (6 qubits, 260 two-qubit gates) takes about 280 s per run and mitigated Parity UCCSD about
+180 s, so the noisy part of the LiH sweep is limited to Parity, COBYLA, reps 1. Parity is also faster on the ideal backend.
+**Conclusion for the benchmark:** on LiH, UCCSD (with the Parity mapping) is the only configuration that can reach chemical
+accuracy, and only on an ideal backend; no tested configuration is close on the noisy simulator.

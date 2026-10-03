@@ -1,0 +1,22 @@
+# LiH (2 electrons in 3 orbitals, STO-3G) at equilibrium (1.595 A). Ideal: every mapping, ansatz,
+# depth and optimizer. Noisy: Parity only (4 qubits, shallower circuits) and COBYLA, with and
+# without mitigation. Jordan-Wigner UCCSD on 6 qubits is too slow on the noisy simulator to sweep
+# (see docs/DECISIONS.md, LiH verification). Run with --max-workers 4.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [jordan_wigner, parity]
+ansatzes: [uccsd, hea]
+ansatz_reps: [1, 2]
+optimizers: [cobyla, spsa, lbfgsb]
+maxiter: 300
+backends: [ideal, noisy]
+shots: [1024]
+mitigations: [none, readout+zne]
+seed: 42
+exclude:
+  # UCCSD beyond one repetition adds depth, not accuracy (it already reaches exact at reps=1).
+  - {ansatz: uccsd, ansatz_reps: 2}
+  # Noisy simulation is restricted to the cheap, informative corner.
+  - {backend: noisy, mapping: jordan_wigner}
+  - {backend: noisy, optimizer: spsa}
+  - {backend: noisy, ansatz_reps: 2}
