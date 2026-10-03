@@ -10,6 +10,20 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from miraichem.backends.hardware import (
+    DEFAULT_HARDWARE_DIR,
+    HardwareAbortedError,
+    HardwareDisabledError,
+    HardwarePlan,
+    fetch_job,
+    get_service,
+)
+from miraichem.backends.hardware_eval import (
+    load_source_run,
+    plan_evaluation,
+    run_hardware_evaluation,
+    save_hardware_result,
+)
 from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, save_result
 from miraichem.benchmark.sweep import load_sweep_config, run_sweep
 from miraichem.chemistry.classical import compute_reference
@@ -113,6 +127,82 @@ def sweep(
             console.print(f"[red]failed[/red] {r.config_hash}: {r.error_message}")
     if summary.n_failed:
         raise typer.Exit(1)
+
+
+def _print_plan(plan: HardwarePlan) -> None:
+    console.print("[bold yellow]Real hardware cost estimate[/bold yellow]")
+    for line in plan.lines():
+        console.print("  " + line)
+
+
+@app.command()
+def hardware(
+    molecule: Annotated[Path, typer.Option(help="Molecule YAML")],
+    config_hash: Annotated[str, typer.Option(help="Hash of a saved simulator run to evaluate")],
+    backend_name: Annotated[
+        str | None, typer.Option(help="Device name; default least busy")
+    ] = None,
+    shots: int = 4096,
+    modes: Annotated[
+        str, typer.Option(help="Comma-separated mitigation modes")
+    ] = "none,readout+zne",
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    hardware_dir: Path = DEFAULT_HARDWARE_DIR,
+    allow_hardware: Annotated[bool, typer.Option(help="REQUIRED to submit real jobs")] = False,
+) -> None:
+    """Evaluate a saved run's optimal parameters on real IBM hardware (fixed-parameter mode).
+
+    Without --allow-hardware this is a dry run: it prints the cost estimate and sends nothing.
+    """
+    mol = _load_molecule(molecule)
+    source = load_source_run(config_hash, mol.name, results_dir)
+    mode_list = [m.strip() for m in modes.split(",") if m.strip()]
+    plan = plan_evaluation(source, mode_list, shots, backend_name)  # type: ignore[arg-type]
+    _print_plan(plan)
+    if not allow_hardware:
+        console.print(
+            "\nDry run: nothing was submitted. Add [bold]--allow-hardware[/bold] to submit."
+        )
+        return
+
+    def confirm(p: HardwarePlan) -> bool:
+        return typer.confirm("Submit these jobs to REAL hardware and use QPU time?", default=False)
+
+    try:
+        result = run_hardware_evaluation(
+            source,
+            mode_list,  # type: ignore[arg-type]
+            shots,
+            confirm,
+            backend_name,
+            hardware_dir=hardware_dir,
+        )
+    except (HardwareAbortedError, HardwareDisabledError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    path = save_hardware_result(result, hardware_dir)
+    table = Table(title=f"{result.molecule} on {result.backend} (error vs exact, mHa)")
+    table.add_column("Source")
+    table.add_column("Energy (Ha)", justify="right")
+    table.add_column("Error (mHa)", justify="right")
+    table.add_row("Exact", f"{result.e_exact:.6f}", "0")
+    table.add_row("Ideal circuit", f"{result.e_ideal_at_params:.6f}", "")
+    table.add_row(
+        f"Simulator ({result.simulator_mitigation})",
+        f"{result.e_simulator:.6f}",
+        f"{abs(result.e_simulator - result.e_exact) * 1000:.1f}",
+    )
+    for ev in result.evaluations:
+        table.add_row(f"Hardware ({ev.mitigation})", f"{ev.e_hw:.6f}", f"{ev.abs_error_mha:.1f}")
+    console.print(table)
+    console.print(f"Saved to {path}")
+
+
+@app.command("hardware-fetch")
+def hardware_fetch(job_id: str) -> None:
+    """Re-fetch a finished hardware job by ID (does not use QPU time)."""
+    info = fetch_job(get_service(), job_id)
+    console.print(info)
 
 
 if __name__ == "__main__":
