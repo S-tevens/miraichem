@@ -24,7 +24,8 @@ from miraichem.backends.hardware_eval import (
     run_hardware_evaluation,
     save_hardware_result,
 )
-from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, save_result
+from miraichem.benchmark.ranking import Weights, recommend
+from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, load_all_results, save_result
 from miraichem.benchmark.sweep import load_sweep_config, run_sweep
 from miraichem.chemistry.classical import compute_reference
 from miraichem.config import MoleculeConfig, RunConfig
@@ -127,6 +128,48 @@ def sweep(
             console.print(f"[red]failed[/red] {r.config_hash}: {r.error_message}")
     if summary.n_failed:
         raise typer.Exit(1)
+
+
+@app.command()
+def rank(
+    molecule: Annotated[str, typer.Option(help="Molecule name, e.g. h2")],
+    backend: Annotated[str, typer.Option(help="ideal | noisy")] = "noisy",
+    bond_length: Annotated[
+        float | None, typer.Option(help="Angstrom; default: most common")
+    ] = None,
+    top: Annotated[int, typer.Option(help="Rows to show")] = 10,
+    weight_accuracy: float = 0.7,
+    weight_gates: float = 0.2,
+    weight_shots: float = 0.1,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+) -> None:
+    """Rank saved runs for a molecule and backend and print the recommended configuration."""
+    results = load_all_results(results_dir, molecule)
+    weights = Weights(weight_accuracy, weight_gates, weight_shots)
+    try:
+        rec = recommend(results, molecule, backend, weights, bond_length)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    table = Table(title=f"{molecule} on {backend}: leaderboard (top {top} of {rec.n_candidates})")
+    for col in ("#", "Configuration", "Error mHa", "CA", "2q gates", "Shots", "Score", "Pareto"):
+        table.add_column(col, justify="left" if col == "Configuration" else "right")
+    for x in rec.ranked[:top]:
+        marks = ("S" if x.on_front_shots else "") + ("G" if x.on_front_gates else "")
+        gates = str(x.result.two_qubit_gates) if x.result.two_qubit_gates is not None else "-"
+        table.add_row(
+            str(x.rank),
+            x.label,
+            f"{x.error_mha:.3g}",
+            "yes" if x.within_chemical_accuracy else "no",
+            gates,
+            f"{x.shots:,}",
+            f"{x.score:.3f}",
+            marks,
+        )
+    console.print(table)
+    console.print("Pareto: S = error vs shots front, G = error vs two-qubit gates front.\n")
+    console.print(rec.justification)
 
 
 def _print_plan(plan: HardwarePlan) -> None:
