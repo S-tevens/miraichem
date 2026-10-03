@@ -32,7 +32,13 @@ from miraichem.backends.hardware_eval import (
 )
 from miraichem.benchmark.ranking import Weights, recommend
 from miraichem.benchmark.ranking_scan import recommend_across_scan
-from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, load_all_results, save_result
+from miraichem.benchmark.report import load_hardware_results, write_report
+from miraichem.benchmark.storage import (
+    DEFAULT_RESULTS_DIR,
+    export_summary,
+    load_all_results,
+    save_result,
+)
 from miraichem.benchmark.sweep import load_sweep_config, run_sweep
 from miraichem.chemistry.classical import compute_reference
 from miraichem.config import MoleculeConfig, RunConfig
@@ -184,6 +190,25 @@ def rank(
     console.print(table)
     console.print("Pareto: S = error vs shots front, G = error vs two-qubit gates front.\n")
     console.print(rec.justification)
+
+
+@app.command()
+def report(
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    hardware_dir: Path = DEFAULT_HARDWARE_DIR,
+    output: Annotated[Path, typer.Option(help="Markdown file to write")] = Path("docs/RESULTS.md"),
+    export_dir: Annotated[
+        Path, typer.Option(help="Where to write summary.csv and summary.parquet")
+    ] = DEFAULT_RESULTS_DIR / "summary",
+) -> None:
+    """Write docs/RESULTS.md and a CSV/Parquet summary from the saved results."""
+    results = load_all_results(results_dir)
+    if not results:
+        console.print(f"[red]No saved results in {results_dir}/. Run a sweep first.[/red]")
+        raise typer.Exit(1)
+    path = write_report(results, output, load_hardware_results(hardware_dir))
+    csv_path, parquet_path = export_summary(results, export_dir)
+    console.print(f"Wrote {path} from {len(results)} runs.\nSummary: {csv_path} and {parquet_path}")
 
 
 def _rank_scan(results: list, molecule: str, backend: str, weights: Weights, top: int) -> None:
