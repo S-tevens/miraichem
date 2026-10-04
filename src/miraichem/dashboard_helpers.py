@@ -18,7 +18,7 @@ from miraichem.analysis.dissociation import DissociationCurve
 from miraichem.backends.hardware_eval import HardwareResult
 from miraichem.benchmark.metrics import CHEMICAL_ACCURACY_HA
 from miraichem.benchmark.ranking import ERROR_FLOOR_MHA, RankedRun, describe
-from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, load_all_results
+from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, NON_RUN_DIRS, load_all_results
 from miraichem.vqe.result import RunResult
 
 TEAL, ORANGE, GREY, RED = "#1b9e77", "#d95f02", "#7f7f7f", "#c0392b"
@@ -46,6 +46,18 @@ class DashboardData:
     def backends_for(self, molecule: str) -> list[str]:
         found = {r.config.backend for r in self.ok_results if r.config.molecule.name == molecule}
         return [b for b in ("ideal", "noisy") if b in found]
+
+
+def has_run_results(results_dir: Path) -> bool:
+    """True if the folder holds at least one saved run (``<molecule>/<hash>.json``)."""
+    root = Path(results_dir)
+    if not root.is_dir():
+        return False
+    return any(
+        next(sub.glob("*.json"), None) is not None
+        for sub in root.glob("*")
+        if sub.is_dir() and sub.name not in NON_RUN_DIRS
+    )
 
 
 def load_dashboard_data(

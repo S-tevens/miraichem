@@ -220,3 +220,45 @@ def test_app_with_empty_results_shows_instructions(tmp_path, monkeypatch):
     assert not at.exception
     assert any("No saved results found" in i.value for i in at.info)
     assert any("miraichem sweep" in c.value for c in at.code)
+
+
+# --- data source: published vs local ---
+
+
+def _publish(h2, folder, n_runs):
+    for r in sample(h2)[:n_runs]:
+        save_result(r, folder)
+
+
+def test_has_run_results(h2, tmp_path):
+    from miraichem.dashboard_helpers import has_run_results
+
+    assert not has_run_results(tmp_path / "missing")
+    assert not has_run_results(tmp_path)
+    (tmp_path / "curves").mkdir()
+    (tmp_path / "curves" / "x.json").write_text("{}")
+    assert not has_run_results(tmp_path)  # curve files are not runs
+    _publish(h2, tmp_path, 1)
+    assert has_run_results(tmp_path)
+
+
+def test_app_uses_published_results_when_there_are_no_local_runs(h2, tmp_path, monkeypatch):
+    _publish(h2, tmp_path / "published", 5)
+    at = run_app(tmp_path, monkeypatch)
+    assert not at.exception
+    assert {m.label: m.value for m in at.metric}["Saved runs"] == "5"
+    assert any("published results" in c.value for c in at.sidebar.caption)
+    assert len(at.sidebar.radio) == 0  # only one source, so no choice is offered
+
+
+def test_app_offers_both_sources_and_switches(h2, tmp_path, monkeypatch):
+    _publish(h2, tmp_path / "published", 5)  # the team's full runs
+    _publish(h2, tmp_path, 2)  # a smaller local run set
+    at = run_app(tmp_path, monkeypatch)
+    assert not at.exception
+    radio = at.sidebar.radio[0]
+    assert radio.options == ["Published results (full team runs)", "My local runs"]
+    assert {m.label: m.value for m in at.metric}["Saved runs"] == "5"  # published is the default
+    radio.set_value("My local runs").run()
+    assert not at.exception
+    assert {m.label: m.value for m in at.metric}["Saved runs"] == "2"

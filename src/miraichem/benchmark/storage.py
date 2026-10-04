@@ -40,7 +40,7 @@ def cached_result(config_hash: str, molecule: str, results_dir: Path = DEFAULT_R
 
 
 # Sub-folders of results/ that hold other kinds of JSON, not run results.
-_NON_RUN_DIRS = {"curves", "hardware", "summary", "published"}
+NON_RUN_DIRS = {"curves", "hardware", "summary", "published"}
 
 
 def load_all_results(results_dir: Path = DEFAULT_RESULTS_DIR, molecule: str | None = None):
@@ -56,7 +56,7 @@ def load_all_results(results_dir: Path = DEFAULT_RESULTS_DIR, molecule: str | No
         files = sorted(
             f
             for sub in results_dir.glob("*")
-            if sub.is_dir() and sub.name not in _NON_RUN_DIRS
+            if sub.is_dir() and sub.name not in NON_RUN_DIRS
             for f in sub.glob("*.json")
         )
     return [load_result(f) for f in files]

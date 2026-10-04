@@ -1,0 +1,10 @@
+{
+  "job_id": "db08dg04oijs73e8mng0",
+  "backend": "ibm_marrakesh",
+  "mitigation": "none",
+  "shots": 1024,
+  "submitted": "2026-10-03T04:38:25+00:00",
+  "source_config_hash": "ee9b195bf2ec",
+  "molecule": "H2",
+  "energy_shift": 0.7199689944489797
+}

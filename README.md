@@ -189,6 +189,30 @@ streamlit run dashboard/app.py
 Results are saved to `results/<molecule>/<hash>.json`. Re-running a sweep skips finished runs
 (`--force` repeats them).
 
+> **The quick demo is a 16-run subset** of our full benchmark, so its recommendations and numbers
+> differ from the [Results](#7-results) section below. Our complete runs (267 simulator runs, the
+> dissociation curves and the real-hardware jobs) are published in this repository; see the next
+> section to explore them without re-running anything.
+
+### Explore our published results (no computation needed)
+
+The full results are committed under [`results/published/`](results/published). They hold every run
+behind the numbers in this README and in [docs/RESULTS.md](docs/RESULTS.md), including the job IDs of
+the real-hardware runs.
+
+```bash
+# the dashboard opens on the published results by default (switch to your own runs in the sidebar)
+streamlit run dashboard/app.py
+
+# the same leaderboards and recommendations from the command line
+miraichem rank --molecule h2 --backend noisy --results-dir results/published
+miraichem rank --molecule h2 --backend noisy --results-dir results/published --scan
+
+# regenerate docs/RESULTS.md from the published data (identical apart from the date)
+miraichem report --results-dir results/published --hardware-dir results/published/hardware \
+    --export-dir /tmp/miraichem_summary
+```
+
 ### More commands
 
 ```bash
@@ -231,8 +255,9 @@ Job IDs are written to `results/hardware/jobs/` the moment a job is submitted.
 
 ## 7. Results
 
-All numbers below were produced by code in this repository and are saved under `results/`;
-[docs/RESULTS.md](docs/RESULTS.md) is generated from them by `miraichem report`. Errors are measured
+All numbers below were produced by code in this repository and are saved in
+[`results/published/`](results/published); [docs/RESULTS.md](docs/RESULTS.md) is generated from them
+by `miraichem report`. Errors are measured
 against the exact energy (FCI for H2, CASCI in the chosen active space for LiH). Chemical accuracy is
 an error below **1.6 mHa**. **Simulator and hardware results are labelled separately.**
 

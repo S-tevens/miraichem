@@ -1,0 +1,10 @@
+{
+  "job_id": "db0jbi3id5ic73ept53g",
+  "backend": "ibm_fez",
+  "mitigation": "none",
+  "shots": 4096,
+  "submitted": "2026-10-03T17:05:13+00:00",
+  "source_config_hash": "4851787063fb",
+  "molecule": "H2",
+  "energy_shift": 0.7199689944489797
+}

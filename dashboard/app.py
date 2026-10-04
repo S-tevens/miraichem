@@ -1,8 +1,10 @@
 """MiraiChem dashboard: explore saved benchmark results (no recomputation).
 
 Run:  streamlit run dashboard/app.py
-Reads only from the results folder (default ``results/``; override with the sidebar box or the
-MIRAICHEM_RESULTS_DIR environment variable), so it works offline and is safe for a live demo.
+Reads only saved results, so it works offline and is safe for a live demo. Two sources are offered
+in the sidebar: the team's published results (``results/published/``, committed to the repository)
+and your own local runs (``results/``; override the folder with the sidebar box or the
+MIRAICHEM_RESULTS_DIR environment variable).
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from miraichem.dashboard_helpers import (
     filter_runs,
     hardware_figure,
     hardware_table,
+    has_run_results,
     load_dashboard_data,
     mitigation_figure,
     mitigation_summary,
@@ -70,9 +73,21 @@ def _empty(message: str, hint: str | None = None) -> None:
 
 st.sidebar.title("MiraiChem")
 st.sidebar.caption("Benchmarking VQE configurations on noisy IBM quantum backends")
-results_dir = Path(
+local_dir = Path(
     st.sidebar.text_input("Results folder", os.environ.get("MIRAICHEM_RESULTS_DIR", "results"))
 )
+sources: dict[str, Path] = {}
+if has_run_results(local_dir / "published"):
+    sources["Published results (full team runs)"] = local_dir / "published"
+if has_run_results(local_dir):
+    sources["My local runs"] = local_dir
+if len(sources) > 1:
+    results_dir = sources[st.sidebar.radio("Data source", list(sources))]
+elif sources:
+    (label, results_dir), *_ = sources.items()
+    st.sidebar.caption(f"Data source: {label.lower()}")
+else:
+    results_dir = local_dir
 if st.sidebar.button("Reload results"):
     st.cache_data.clear()
 data = _load(str(results_dir), _stamp(results_dir))

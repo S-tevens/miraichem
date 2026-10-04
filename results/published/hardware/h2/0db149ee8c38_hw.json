@@ -1,0 +1,66 @@
+{
+  "source_config_hash": "0db149ee8c38",
+  "molecule": "H2",
+  "bond_length": 0.735,
+  "backend": "ibm_fez",
+  "shots": 4096,
+  "parameters": [
+    -0.001687386215685087,
+    -0.2674064294708236,
+    -0.1610387674812855,
+    -0.16219301341746215,
+    0.16838256694512885,
+    -0.25784039781763113,
+    0.38412119820879775,
+    0.2914643291443224,
+    -0.05898133369755468,
+    -0.01556668386679343,
+    -0.2527944255095014,
+    -0.19569741395219878
+  ],
+  "e_exact": -1.1373060357534004,
+  "e_hf": -1.116998996754004,
+  "e_ideal_at_params": -1.133399067865723,
+  "e_simulator": -1.1357163834252306,
+  "simulator_mitigation": "readout",
+  "evaluations": [
+    {
+      "mitigation": "none",
+      "e_hw": -1.0611525152191827,
+      "e_hw_std": 0.004873708569673135,
+      "abs_error_mha": 76.15352053421765,
+      "job_id": "db0jceeegvvc73bgdasg"
+    },
+    {
+      "mitigation": "readout",
+      "e_hw": -1.124883764299347,
+      "e_hw_std": 0.0052032244167663525,
+      "abs_error_mha": 12.42227145405339,
+      "job_id": "db0jchpb694s73dr2dvg"
+    },
+    {
+      "mitigation": "zne",
+      "e_hw": -1.0638405731717633,
+      "e_hw_std": 0.011033002603394463,
+      "abs_error_mha": 73.46546258163711,
+      "job_id": "db0jco6egvvc73bgdbe0"
+    },
+    {
+      "mitigation": "readout+zne",
+      "e_hw": -1.1321438667079864,
+      "e_hw_std": 0.006478641947304153,
+      "abs_error_mha": 5.162169045414,
+      "job_id": "db0jct3id5ic73ept840"
+    }
+  ],
+  "timestamp": "2026-10-03T17:08:30+00:00",
+  "library_versions": {
+    "qiskit": "2.5.2",
+    "qiskit-aer": "0.17.2",
+    "qiskit-ibm-runtime": "0.50.0",
+    "qiskit-nature": "0.8.0",
+    "pyscf": "2.14.0",
+    "numpy": "2.2.6",
+    "scipy": "1.17.1"
+  }
+}

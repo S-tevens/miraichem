@@ -1,0 +1,36 @@
+{
+  "source_config_hash": "ee9b195bf2ec",
+  "molecule": "H2",
+  "bond_length": 0.735,
+  "backend": "ibm_marrakesh",
+  "shots": 1024,
+  "parameters": [
+    0.15471267887895465,
+    0.11156678457509346,
+    0.013046249134301885
+  ],
+  "e_exact": -1.1373060357534004,
+  "e_hf": -1.116998996754004,
+  "e_ideal_at_params": -1.07133681812279,
+  "e_simulator": -0.9607202793444417,
+  "simulator_mitigation": "readout+zne",
+  "evaluations": [
+    {
+      "mitigation": "none",
+      "e_hw": -0.898724770685477,
+      "e_hw_std": 0.011209777869808467,
+      "abs_error_mha": 238.58126506792343,
+      "job_id": "db08dg04oijs73e8mng0"
+    }
+  ],
+  "timestamp": "2026-10-03T04:57:27+00:00",
+  "library_versions": {
+    "qiskit": "2.5.2",
+    "qiskit-aer": "0.17.2",
+    "qiskit-ibm-runtime": "0.50.0",
+    "qiskit-nature": "0.8.0",
+    "pyscf": "2.14.0",
+    "numpy": "2.2.6",
+    "scipy": "1.17.1"
+  }
+}
