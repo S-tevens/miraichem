@@ -29,7 +29,12 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: long-running tests (deselect with -m 'not slow')"]
+# The notebook execution test takes about 2 minutes, so it only runs with `pytest -m notebook`.
+addopts = "-m 'not notebook'"
+markers = [
+    "slow: long-running tests (deselect with -m 'not slow')",
+    "notebook: executes the demo notebook end to end (run with -m notebook)",
+]
 
 [tool.mypy]
 ignore_missing_imports = true

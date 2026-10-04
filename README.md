@@ -194,6 +194,18 @@ Results are saved to `results/<molecule>/<hash>.json`. Re-running a sweep skips 
 > dissociation curves and the real-hardware jobs) are published in this repository; see the next
 > section to explore them without re-running anything.
 
+### Demo notebook (about 2 minutes)
+
+[`notebooks/01_h2_end_to_end_demo.ipynb`](notebooks/01_h2_end_to_end_demo.ipynb) walks through the whole
+pipeline on H2: reference energies, the qubit Hamiltonian, an ideal VQE run, a noisy run with and without
+mitigation, a sweep with ranking and a recommendation, a dissociation curve, and the hardware cost gate
+and our saved hardware results. It only calls the package, uses no hardware time, and is saved with its
+outputs, so you can also read it directly on GitHub.
+
+```bash
+jupyter lab notebooks/01_h2_end_to_end_demo.ipynb    # then Run > Run All Cells
+```
+
 ### Explore our published results (no computation needed)
 
 The full results are committed under [`results/published/`](results/published). They hold every run

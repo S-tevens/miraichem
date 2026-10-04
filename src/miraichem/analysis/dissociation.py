@@ -154,9 +154,6 @@ def load_curve(path: Path) -> DissociationCurve:
 
 def plot_curve_png(curve: DissociationCurve, path: Path) -> Path:
     """Static figure for the README and slides: energies on top, error and accuracy band below."""
-    import matplotlib
-
-    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     x = np.array(curve.bond_lengths)
