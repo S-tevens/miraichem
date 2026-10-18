@@ -1,0 +1,13 @@
+# UCCSD baseline for the LiH seed replication (COBYLA: SPSA on a 200-gate noisy circuit is too slow).
+# 5 seeds only because each run takes several minutes.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [uccsd]
+ansatz_reps: [1]
+optimizers: [cobyla]
+maxiter: 300
+backends: [noisy]
+shots: [4096]
+mitigations: [readout+zne]
+seeds: [42, 43, 44, 45, 46]

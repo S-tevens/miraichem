@@ -22,12 +22,16 @@ GROUP_COLS = [
     "optimizer",
     "maxiter",
     "backend",
+    "device",
     "shots",
     "mitigation",
+    "zne",
 ]
 
-
-RUN_COLUMNS = [*GROUP_COLS, "seed", "error_mHa", "n_evals"]
+# Cost columns: they do not define a configuration, they describe what it costs to run.
+COST_COLS = ["two_qubit_gates", "logical_depth", "total_shots"]
+RUN_COLUMNS = [*GROUP_COLS, "seed", "error_mHa", "n_evals", *COST_COLS]
+STRING_COLS = ("device", "zne")
 RUNS_CSV = "replication_runs.csv"
 TABLE_CSV = "replication_table.csv"
 
@@ -49,11 +53,18 @@ def runs_frame(results: list[RunResult]) -> pd.DataFrame:
                 "optimizer": c.optimizer,
                 "maxiter": c.maxiter,
                 "backend": c.backend,
+                "device": c.fake_backend_name if c.backend != "ideal" else "",
                 "shots": c.shots if c.backend != "ideal" else 0,
                 "mitigation": c.mitigation,
+                "zne": f"{'-'.join(f'{x:g}' for x in c.zne_scales)} {c.zne_method}"
+                if "zne" in c.mitigation
+                else "",
                 "seed": c.seed,
                 "error_mHa": r.abs_error_mha,
                 "n_evals": r.n_function_evals,
+                "two_qubit_gates": r.two_qubit_gates,
+                "logical_depth": r.logical_depth,
+                "total_shots": r.total_shots,
             }
         )
     return pd.DataFrame(rows, columns=RUN_COLUMNS)
@@ -74,6 +85,7 @@ def summarize(df: pd.DataFrame, molecule: str | None = None, min_seeds: int = 3)
     """Same as :func:`replication_table`, from a per-run table (see :func:`runs_frame`)."""
     if df.empty:
         return df
+    df = normalize_runs(df)
     if molecule:
         df = df[df.molecule.str.lower() == molecule.lower()]
     rows = []
@@ -97,6 +109,9 @@ def summarize(df: pd.DataFrame, molecule: str | None = None, min_seeds: int = 3)
                 max_mHa=float(e.max()),
                 frac_chem_acc=float((e < CHEMICAL_ACCURACY_HA * 1000).mean()),
                 mean_evals=float(g.n_evals.mean()),
+                two_qubit_gates=float(g.two_qubit_gates.mean()),
+                logical_depth=float(g.logical_depth.mean()),
+                total_shots=float(g.total_shots.mean()),
             )
         )
     out = pd.DataFrame(rows)
@@ -119,5 +134,20 @@ def config_label(row) -> str:
 
 
 def read_runs_csv(path) -> pd.DataFrame:
-    """Per-run replication table saved by ``miraichem replicate --export-runs``."""
-    return pd.read_csv(path)
+    """Per-run replication table saved by ``miraichem replicate --export-runs``.
+
+    Older files without the device/ZNE/cost columns are still readable (those columns are filled
+    with blanks / NaN).
+    """
+    return normalize_runs(pd.read_csv(path))
+
+
+def normalize_runs(df: pd.DataFrame) -> pd.DataFrame:
+    """Make sure every expected column exists and string columns have no NaN (groupby drops NaN)."""
+    df = df.copy()
+    for col in STRING_COLS:
+        df[col] = df[col].fillna("") if col in df else ""
+    for col in COST_COLS:
+        if col not in df:
+            df[col] = float("nan")
+    return df

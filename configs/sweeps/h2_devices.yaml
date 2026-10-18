@@ -1,0 +1,17 @@
+# Does the recommendation transfer across devices? The same focused H2 grid (equilibrium 0.735 A,
+# Parity, SPSA) run on five fake IBM devices: Sherbrooke, Brisbane and Kyiv (ECR gates, 127 qubits)
+# and Fez and Torino (CZ gates; Fez is the device we validated on real hardware). 10 seeds each.
+# FakeSherbrooke runs reuse the cached h2_replication results where the settings match.
+# Roughly 20-30 minutes with --max-workers 8.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [parity]
+ansatzes: [uccsd, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa]
+maxiter: 150
+backends: [noisy]
+fake_backend_names: [FakeSherbrooke, FakeBrisbane, FakeKyiv, FakeFez, FakeTorino]
+shots: [4096]
+mitigations: [none, readout, zne, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]

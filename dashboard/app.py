@@ -22,6 +22,7 @@ from miraichem.benchmark.ranking import (
     recommend,
     select_runs,
 )
+from miraichem.benchmark.ranking_replicated import recommend_replicated
 from miraichem.benchmark.ranking_scan import recommend_across_scan
 from miraichem.dashboard_helpers import (
     PIPELINE_DOT,
@@ -304,6 +305,14 @@ with tabs[5]:
 
 with tabs[6]:
     st.subheader("Recommended configuration")
+    replicated_runs = load_replication(results_dir)
+    if replicated_runs is not None:
+        try:
+            rep_rec = recommend_replicated(replicated_runs, molecule, backend)
+            st.markdown("**Over random seeds** (the most trustworthy recommendation)")
+            (st.success if rep_rec.reliable else st.warning)(rep_rec.justification)
+        except ValueError:
+            pass  # no seed-replicated runs for this molecule/backend
     try:
         scan = recommend_across_scan(data.results, molecule, backend)
         st.markdown("**Across a bond-length scan** (the more reliable recommendation)")

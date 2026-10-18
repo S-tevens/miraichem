@@ -1,0 +1,15 @@
+# Seed replication of the LiH noisy benchmark (equilibrium 1.595 A, Parity, 4 qubits): the two
+# hardware-efficient variants (plain hea and hea_hf, which starts exactly at Hartree-Fock) with SPSA
+# over 8 seeds. Seed 42 reuses cached runs from lih_noisy_extended where the settings match.
+# Roughly 30-60 minutes with --max-workers 8.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa]
+maxiter: 300
+backends: [noisy]
+shots: [4096]
+mitigations: [none, readout, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49]

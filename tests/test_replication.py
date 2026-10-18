@@ -74,6 +74,7 @@ def test_report_has_replication_section_with_honest_numbers():
     results = _replicated([0.5, 4.0, 5.0, 6.0, 7.0, 8.0])
     text = generate_report(results, replication=runs_frame(results))
     assert "## Seed replication (reliability)" in text
+    assert "**Recommendation over seeds.**" in text
     assert "0 of 1 configurations reached chemical accuracy in at least half" in text
     assert "0.50 mHa" in text  # the lucky single run is shown next to the mean
 
@@ -94,3 +95,17 @@ def test_dashboard_helpers_for_replication(tmp_path):
     table = replication_summary(loaded, "H2", "noisy")
     assert len(table) == 1 and table.n_seeds[0] == 6
     assert replication_figure(table).data[0].orientation == "h"
+
+
+def test_sweep_devices_expand_and_have_distinct_hashes():
+    sweep = SweepConfig(
+        molecule=H2,
+        bond_lengths=[0.735],
+        backends=["noisy"],
+        fake_backend_names=["FakeSherbrooke", "FakeFez"],
+        seeds=[1, 2],
+    )
+    runs = sweep.expand()
+    assert len(runs) == 4
+    assert {r.fake_backend_name for r in runs} == {"FakeSherbrooke", "FakeFez"}
+    assert len({r.config_hash() for r in runs}) == 4

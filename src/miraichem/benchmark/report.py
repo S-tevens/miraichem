@@ -13,7 +13,9 @@ from pathlib import Path
 
 from miraichem.backends.hardware import DEFAULT_HARDWARE_DIR
 from miraichem.backends.hardware_eval import HardwareResult
+from miraichem.benchmark.devices import compare_devices, summarize_agreement
 from miraichem.benchmark.ranking import Weights, describe, recommend
+from miraichem.benchmark.ranking_replicated import recommend_replicated
 from miraichem.benchmark.ranking_scan import recommend_across_scan
 from miraichem.benchmark.replication import config_label, summarize
 from miraichem.vqe.result import RunResult
@@ -236,13 +238,23 @@ def _replication_section(runs, top: int = 10) -> str | None:
         return None
     parts: list[str] = []
     for (mol, backend), t in table.groupby(["molecule", "backend"]):
+        # one device per section; other devices are compared in the cross-device section
+        device = ""
+        if backend != "ideal" and t.device.nunique() > 1:
+            device = (
+                "FakeSherbrooke" if (t.device == "FakeSherbrooke").any() else t.device.mode()[0]
+            )
+            t = t[t.device == device]
+        elif backend != "ideal":
+            device = str(t.device.iloc[0])
         t = t.sort_values("mean_mHa").reset_index(drop=True)
         n_seeds = int(t.n_seeds.max())
         best = t.iloc[0]
         lucky = t.loc[t.min_mHa.idxmin()]
         reliable = int((t.frac_chem_acc >= 0.5).sum())
         parts += [
-            f"### {mol}: {BACKEND_TITLES.get(backend, backend)}, replicated over seeds",
+            f"### {mol}: {BACKEND_TITLES.get(backend, backend)}, replicated over seeds"
+            + (f" (device `{device}`)" if device else ""),
             "",
             f"{len(t)} configurations were each run with up to {n_seeds} different seeds (random "
             "start point, optimizer randomness and shot noise). Errors are in mHa against the exact "  # noqa: E501
@@ -269,6 +281,13 @@ def _replication_section(runs, top: int = 10) -> str | None:
             ]
             for r in t.head(top).itertuples()
         ]
+        try:
+            rec = recommend_replicated(
+                runs, str(mol), str(backend), min_seeds=5, device=device or None
+            )
+            parts += [f"**Recommendation over seeds.** {rec.justification}", ""]
+        except ValueError:
+            pass
         parts += [
             md_table(
                 ["Configuration", "Seeds", "Mean ± std", "Median", "Worst", "Within 1.6 mHa"], rows
@@ -309,6 +328,45 @@ def _replication_section(runs, top: int = 10) -> str | None:
                 ]
         parts.append("")
     return "\n".join(parts)
+
+
+def _devices_section(runs) -> str | None:
+    """Cross-device comparison, for every molecule that was replicated on 2+ devices."""
+    if runs is None or len(runs) == 0:
+        return None
+    parts: list[str] = []
+    for mol in sorted(runs.molecule.unique()):
+        try:
+            cmp = compare_devices(runs, str(mol), "noisy", min_seeds=5)
+        except ValueError:
+            continue
+        short = [d.replace("Fake", "") for d in cmp.devices]
+        rows = [
+            [f"`{name}`", *[f"{v:.1f}" if v == v else "-" for v in row[cmp.devices]]]
+            for name, row in cmp.means.iterrows()
+        ]
+        recs = [
+            f"- `{d}`: {r.best.label.split(' / ', 1)[1]} "
+            f"({r.best.mean:.1f} ± {r.best.std:.1f} mHa, {r.best.n_chem}/{r.best.n_seeds} seeds "
+            "within 1.6 mHa)"
+            for d, r in cmp.recommendations.items()
+        ]
+        parts += [
+            f"### {mol}: does the recommendation transfer across devices?",
+            "",
+            "Mean error (mHa) over seeds for the same configurations on different fake IBM devices "
+            "(each with its own calibration-based noise model):",
+            "",
+            md_table(["Configuration", *short], rows),
+            "",
+            "Recommended configuration per device:",
+            "",
+            *recs,
+            "",
+            summarize_agreement(cmp),
+            "",
+        ]
+    return "\n".join(parts) if parts else None
 
 
 def _figures_section(molecules: list[str], figures_dir: Path) -> str | None:
@@ -359,6 +417,9 @@ def generate_report(
     rep = _replication_section(replication)
     if rep:
         parts += ["## Seed replication (reliability)", "", rep, ""]
+    devices_text = _devices_section(replication)
+    if devices_text:
+        parts += ["## Transfer across devices", "", devices_text, ""]
     parts += ["## Real hardware results", "", _hardware_section(hardware), ""]
     figures = _figures_section(molecules, figures_dir) if figures_dir else None
     if figures:

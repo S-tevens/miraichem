@@ -140,6 +140,11 @@ class SweepConfig(BaseModel):
     zne_scales: list[float] = [1.0, 3.0]
     zne_method: Literal["linear", "richardson"] = "linear"
     seed: int = 42
+    fake_backend_names: list[str] | None = Field(
+        None,
+        description="Run every configuration on each of these fake IBM devices. If set, it "
+        "replaces ``fake_backend_name``.",
+    )
     seeds: list[int] | None = Field(
         None,
         description="Replicate every configuration once per seed. If set, it replaces ``seed``.",
@@ -162,8 +167,9 @@ class SweepConfig(BaseModel):
             self.shots,
             self.mitigations,
             self.seeds if self.seeds else [self.seed],
+            self.fake_backend_names or [self.fake_backend_name],
         )
-        for bl, mp, an, reps, opt, be, sh, mit, seed in grid:
+        for bl, mp, an, reps, opt, be, sh, mit, seed, device in grid:
             if invalid_combination(opt, be, mit):
                 continue
             if be == "ideal" and sh != self.shots[0]:
@@ -177,7 +183,7 @@ class SweepConfig(BaseModel):
                 optimizer=opt,
                 maxiter=self.maxiter,
                 backend=be,
-                fake_backend_name=self.fake_backend_name,
+                fake_backend_name=device,
                 shots=sh,
                 mitigation=mit,
                 zne_scales=self.zne_scales,

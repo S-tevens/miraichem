@@ -159,8 +159,19 @@ def rank(
         bool,
         typer.Option(help="Rank across bond-length scans (worst case) instead of one geometry"),
     ] = False,
+    replicated: Annotated[
+        bool,
+        typer.Option(help="Rank by mean error over seeds and recommend what you can trust"),
+    ] = False,
+    runs_csv: Annotated[
+        Path | None, typer.Option(help="With --replicated: read per-seed rows from this CSV")
+    ] = None,
+    min_seeds: Annotated[int, typer.Option(help="With --replicated: minimum seeds")] = 3,
 ) -> None:
     """Rank saved runs for a molecule and backend and print the recommended configuration."""
+    if replicated:
+        _rank_replicated(molecule, backend, bond_length, top, results_dir, runs_csv, min_seeds)
+        return
     results = load_all_results(results_dir, molecule)
     weights = Weights(weight_accuracy, weight_gates, weight_shots)
     if scan:
@@ -192,6 +203,79 @@ def rank(
     console.print(rec.justification)
 
 
+def _rank_replicated(
+    molecule: str,
+    backend: str,
+    bond_length: float | None,
+    top: int,
+    results_dir: Path,
+    runs_csv: Path | None,
+    min_seeds: int,
+) -> None:
+    from miraichem.benchmark.ranking_replicated import recommend_replicated
+    from miraichem.benchmark.replication import read_runs_csv, runs_frame
+
+    runs = read_runs_csv(runs_csv) if runs_csv else runs_frame(load_all_results(results_dir))
+    try:
+        rec = recommend_replicated(runs, molecule, backend, bond_length, min_seeds)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    table = Table(title=f"{molecule} on {backend}: replicated leaderboard (top {top})")
+    for col in ("#", "Configuration", "Seeds", "Mean ± 95% CI", "Worst", "<1.6 mHa", "2q gates"):
+        table.add_column(col, justify="left" if col == "Configuration" else "right", no_wrap=True)
+    for c in rec.ranked[:top]:
+        mark = " *" if c is rec.best else ""
+        table.add_row(
+            str(c.rank),
+            c.label + mark,
+            str(c.n_seeds),
+            f"{c.mean:.1f} ± {c.ci95:.1f}",
+            f"{c.worst:.1f}",
+            f"{c.n_chem}/{c.n_seeds}",
+            f"{c.gates:.0f}",
+        )
+    console.print(table)
+    console.print("* = recommended.\n")
+    console.print(rec.justification)
+
+
+@app.command()
+def devices(
+    molecule: Annotated[str, typer.Option(help="Molecule name, e.g. H2")] = "H2",
+    backend: str = "noisy",
+    min_seeds: Annotated[int, typer.Option(help="Minimum seeds per configuration")] = 5,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    runs_csv: Annotated[Path | None, typer.Option(help="Read per-seed rows from this CSV")] = None,
+) -> None:
+    """Does the recommendation transfer across fake IBM devices? (needs a multi-device sweep)"""
+    from miraichem.benchmark.devices import compare_devices, summarize_agreement
+    from miraichem.benchmark.replication import read_runs_csv, runs_frame
+
+    runs = read_runs_csv(runs_csv) if runs_csv else runs_frame(load_all_results(results_dir))
+    try:
+        cmp = compare_devices(runs, molecule, backend, min_seeds=min_seeds)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    t = Table(title=f"{molecule}: mean error (mHa) over seeds, per device")
+    t.add_column("Configuration", no_wrap=True)
+    for d in cmp.devices:
+        t.add_column(d.replace("Fake", ""), justify="right", no_wrap=True)
+    for name, row in cmp.means.iterrows():
+        t.add_row(str(name), *[f"{row[d]:.1f}" if row[d] == row[d] else "-" for d in cmp.devices])
+    console.print(t)
+    console.print("\nRank correlation (Spearman) between devices:")
+    console.print(cmp.spearman.round(2).to_string())
+    console.print("\nRecommended per device:")
+    for d, rec in cmp.recommendations.items():
+        console.print(
+            f"  {d}: {rec.best.label}  ({rec.best.mean:.1f} ± {rec.best.std:.1f} mHa, "
+            f"{rec.best.n_chem}/{rec.best.n_seeds} within 1.6 mHa)"
+        )
+    console.print("\n" + summarize_agreement(cmp))
+
+
 @app.command()
 def replicate(
     molecule: Annotated[str, typer.Option(help="Molecule name, e.g. H2")] = "H2",
@@ -213,15 +297,15 @@ def replicate(
 ) -> None:
     """Mean +/- std error over seeds for every replicated configuration."""
     from miraichem.benchmark.replication import (
+        GROUP_COLS,
         config_label,
+        normalize_runs,
         read_runs_csv,
         runs_frame,
         summarize,
     )
 
-    df = (
-        read_runs_csv(runs_csv) if runs_csv else runs_frame(load_all_results(results_dir, molecule))
-    )
+    df = read_runs_csv(runs_csv) if runs_csv else runs_frame(load_all_results(results_dir))
     table = summarize(df, molecule, min_seeds=min_seeds)
     if table.empty:
         console.print("[yellow]No replicated configurations found.[/yellow]")
@@ -230,25 +314,14 @@ def replicate(
         table = table[table.backend == backend]
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
-        table.to_csv(out, index=False)
+        # every molecule and backend, so the published table matches the published per-seed rows
+        summarize(df, None, min_seeds=min_seeds).to_csv(out, index=False)
     if export_runs:
-        keep = df[df.molecule.str.lower() == molecule.lower()]
-        keys = table[
-            [
-                "mapping",
-                "ansatz",
-                "reps",
-                "optimizer",
-                "maxiter",
-                "backend",
-                "shots",
-                "mitigation",
-                "bond_length",
-            ]
-        ]
-        keep = keep.merge(keys, on=list(keys.columns))
+        # every replicated configuration of every molecule, so one file holds the whole study
+        keys = summarize(df, None, min_seeds=min_seeds)[GROUP_COLS]
+        keep = normalize_runs(df).merge(keys, on=GROUP_COLS)
         export_runs.parent.mkdir(parents=True, exist_ok=True)
-        keep.sort_values([*keys.columns, "seed"]).to_csv(export_runs, index=False)
+        keep.sort_values([*GROUP_COLS, "seed"]).to_csv(export_runs, index=False)
     t = Table(title=f"{molecule} replicated over seeds ({backend}), best mean error first")
     t.add_column("Configuration", no_wrap=True)
     for col in ("Seeds", "Mean", "Std", "Median", "Worst", "<1.6 mHa"):
