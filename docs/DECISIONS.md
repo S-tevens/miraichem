@@ -149,3 +149,43 @@ Best error per group, in mHa (nothing reaches chemical accuracy, 1.6 mHa):
   is closest (about 37 to 71 mHa), and UCCSD is accurate only on the ideal backend. Multi-seed replication would be needed before ranking
   the mitigation modes against each other.
 - **Caveat:** seed and `maxiter` are fixed in this sweep; shot noise alone can move a result by tens of mHa for SPSA runs.
+
+## 2026-10-18: Seed replication and a statistics-aware recommendation
+
+**Why.** Single-seed results on a noisy objective can be lucky. The best single H2 run of the top configuration was 0.11 mHa while its
+mean over 10 seeds was 3.7 mHa, and a configuration that looked best (about 2 mHa) averaged 16 mHa. Ranking by one run per configuration
+therefore recommends luck.
+
+**What changed.**
+- `seeds` (and `fake_backend_names`) in a sweep YAML repeat every configuration per seed (per device). The seed controls the random start
+  point, SPSA's perturbations and shot noise; the config hash includes it, so each replicate is cached separately.
+- `miraichem replicate` and `miraichem rank --replicated` group runs that differ only in seed. Per configuration: mean, standard deviation,
+  95% t-interval of the mean, median, worst case, and the share of seeds within chemical accuracy with a 95% Wilson interval (well behaved
+  for small counts and for 0% / 100%).
+- **Recommendation rule** (`benchmark/ranking_replicated.py`):
+  1. If some configuration reaches chemical accuracy in at least 50% of its seeds, take the cheapest of those (two-qubit gates, then shots).
+  2. Otherwise nothing is reliably accurate: take the lowest-mean configuration, then the cheapest configuration that is **not significantly
+     worse** (one-sided Welch t-test, p > 0.05) **and practically close** (mean within 1.5x the best mean plus 1.6 mHa).
+- **Why the practical margin.** A very noisy configuration (large variance) can look "not significantly worse" only because the test has no
+  power. A unit test with a mean-150 mHa, std-320 mHa configuration confirms the t-test alone would have tied it with a 4 mHa one.
+- **Limits.** The 50% reliability level, alpha = 0.05 and the 1.5x margin are judgment calls, exposed as parameters. Ties are decided with
+  few seeds (5 to 10), so low power makes ties easy; the justification text states when fewer than 5 seeds are involved. No correction for
+  multiple comparisons is applied.
+- **Hardware-efficient ansatz start state.** The plain `hea` starts at P|HF> (the CNOT layers permute basis states), not at Hartree-Fock,
+  for some qubit counts. The new `hea_hf` prepares the pre-image of HF with X gates, so zero parameters give exactly HF with no extra
+  two-qubit gates. It was added as a new ansatz kind rather than changing `hea`, so published results and the hardware runs stay valid.
+  With 2 reps on 2 qubits the two CNOT layers cancel and `hea` == `hea_hf` exactly (a built-in consistency check).
+
+### Update 2026-10-18: seed replication of LiH and a cross-device check
+
+- **LiH.** Eight seeds of the HEA configurations and five of UCCSD overturn the single-seed reading above: the 36.6 mHa best run was a lucky
+  draw. Averages are 160 to 530 mHa (HEA, SPSA) with seed-to-seed swings of hundreds of mHa and no seed within chemical accuracy; UCCSD is at
+  360 mHa on every seed. The statement "the closest is a shallow HEA with SPSA at 36.6 mHa" should be read as "best single run".
+  `hea_hf`, which clearly helps H2, does not help LiH (wide intervals; no claim that it is worse).
+- **Cross-device.** The same H2 grid on five fake devices (Sherbrooke, Brisbane, Kyiv: ECR; Fez, Torino: CZ) gives rank correlations of
+  0.83 to 1.00 between devices and a recommendation that is identical on four of five (and statistically close on the fifth), so the
+  ordering of configurations transfers even though absolute errors differ by about 2x between devices. `FakeFez` models `ibm_fez`, the
+  device used for the hardware runs.
+- **Simulator vs hardware.** Simulated devices underestimate the unmitigated error (hardware 84.5 mHa vs 22 to 61 mHa simulated for UCCSD) but
+  agree on the fully mitigated result (3.0 vs 3.3 to 6.6 mHa). Protocols differ (fixed-parameter hardware evaluation vs optimised under noise).
+

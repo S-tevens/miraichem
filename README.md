@@ -219,6 +219,7 @@ streamlit run dashboard/app.py
 # the same leaderboards and recommendations from the command line
 miraichem rank --molecule h2 --backend noisy --results-dir results/published
 miraichem rank --molecule h2 --backend noisy --results-dir results/published --scan
+miraichem rank --molecule h2 --backend noisy --replicated     --runs-csv results/published/summary/replication_runs.csv
 
 # regenerate docs/RESULTS.md from the published data (identical apart from the date)
 miraichem report --results-dir results/published --hardware-dir results/published/hardware \
@@ -240,6 +241,11 @@ miraichem sweep configs/sweeps/lih_noisy_extended.yaml --max-workers 4 # 40 runs
 # rank across a bond-length scan (judges configurations by worst case, not one geometry)
 miraichem curve --molecule configs/molecules/h2.yaml --backend ideal --max-workers 4
 miraichem rank --molecule h2 --backend ideal --scan
+
+# repeat configurations over seeds, then rank by mean error and recommend what you can trust
+miraichem sweep configs/sweeps/h2_replication.yaml --max-workers 8     # 10 seeds, about 30 min
+miraichem replicate --molecule H2                                       # mean +/- std per configuration
+miraichem rank --molecule h2 --backend noisy --replicated
 
 # dissociation curve of a specific saved run, and the written report
 miraichem curve --molecule configs/molecules/h2.yaml --config-hash <hash>
@@ -324,8 +330,37 @@ What this shows, and what it does not:
 - **A hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) fixes a real weakness
   of the plain one**: with 1 rep its best mean error drops from 14.9 to 4.5 mHa, close to UCCSD
   with 1 two-qubit gate instead of 4 (depth 16 instead of 38). With 2 reps on 2 qubits the CNOT layers cancel and the two are identical.
+  This helps H2 but not LiH (see below), so it is not a general fix.
 - Replication was done for H2 on the noisy simulator only. LiH and the hardware runs are single runs.
   Per-seed data is in `results/published/summary/replication_runs.csv`.
+
+### Does the recommendation transfer across devices? (simulator, H2, 0.735 A)
+
+We repeated the focused grid on five fake IBM devices, each with its own calibration-based noise model
+(Sherbrooke, Brisbane and Kyiv with ECR gates; Fez and Torino with CZ gates; Fez is the device we used
+for the hardware runs), 10 seeds each. Mean error in mHa:
+
+| Configuration (Parity, SPSA) | Brisbane | Fez | Kyiv | Sherbrooke | Torino |
+|---|---|---|---|---|---|
+| HEA from Hartree-Fock + readout | 3.4 | 5.6 | 6.4 | 6.1 | 5.6 |
+| UCCSD + readout + ZNE | 4.3 | 4.8 | 3.3 | 3.7 | 6.6 |
+| HEA from Hartree-Fock + readout + ZNE | 4.4 | 5.3 | 8.5 | 4.5 | 4.9 |
+| UCCSD + readout | 17.3 | 11.0 | 13.7 | 17.5 | 10.9 |
+| UCCSD + ZNE only | 25.3 | 11.9 | 48.8 | 36.6 | 47.2 |
+| UCCSD, no mitigation | 42.8 | 22.5 | 61.2 | 50.3 | 53.7 |
+
+- **The ordering of configurations transfers.** The rank correlation of mean errors between any two devices
+  is 0.83 to 1.00 and the same three configurations are best everywhere, all within a few mHa of each other.
+  The recommender picks the same configuration on four of five devices (HEA from Hartree-Fock with readout
+  correction) and a statistically close alternative on the fifth (Kyiv: UCCSD with readout + ZNE).
+- **Reading this honestly:** the top configurations are tied within seed-to-seed noise on every device, so
+  the transferable lesson is "use readout correction (plus ZNE on top), SPSA, the Parity mapping", not one
+  exact winner. No configuration is reliably chemically accurate on any device.
+- **The simulators are optimistic against the real device.** Unmitigated UCCSD is off by 84.5 mHa on
+  `ibm_fez` but by 22 to 61 mHa on the five simulated devices, and ZNE alone helps far less on hardware.
+  The fully mitigated results do agree (3.0 mHa on hardware, 3.3 to 6.6 mHa simulated). The protocols
+  differ (hardware is a fixed-parameter evaluation, the simulator numbers are optimised under noise), so
+  treat this as indicative.
 
 ### H2 on real IBM hardware (REAL DEVICE: ibm_fez, 4096 shots, 0.735 A)
 
@@ -349,18 +384,27 @@ or from each other, with one run each.
 
 - **Ideal simulator:** UCCSD reaches chemical accuracy (0.00 mHa) with every optimizer and both
   mappings; the hardware-efficient ansatz never does (best 19.1 mHa).
-- **Noisy simulator:** nothing reaches chemical accuracy. The closest is a shallow HEA with SPSA at
-  36.6 mHa; UCCSD needs 203 two-qubit gates and stays 340 to 517 mHa off.
-- COBYLA stalls on noisy objectives (about 900 mHa for HEA) whereas SPSA with the same circuit reaches
-  37 to 71 mHa: the optimizer, not the noise, caused that failure.
+- **Noisy simulator: nothing comes close.** We repeated the most promising configurations over 8 seeds
+  (UCCSD over 5). The best average is the shallow HEA with SPSA and readout correction at about 160 mHa,
+  and results swing by hundreds of mHa between seeds (worst 479 mHa; no seed reached chemical accuracy).
+  UCCSD needs 203 two-qubit gates and sits at 360 ± 5 mHa on every seed: consistent, but 225 times too
+  large. The best single run of the whole study, 30 mHa, is a lucky draw, not a typical result.
+- **COBYLA stalls on noisy objectives** (about 900 mHa for HEA), whereas SPSA with the same circuit
+  averages 160 to 530 mHa, so the optimizer matters, but SPSA with 300 evaluations is still far from
+  converged on this problem.
+- **The Hartree-Fock-start HEA that helped H2 does not help LiH** (it averages 250 to 530 mHa against
+  160 to 225 mHa for the plain HEA; with 8 seeds the intervals are wide, so we do not claim it is worse).
+- **Reading:** on today's simulated noisy devices, LiH is beyond what this shallow-circuit VQE setup can
+  do reliably, which is a finding about where noisy VQE breaks down, not a tuning issue we have solved.
 
 ## 8. Limitations and honest notes
 
 - **Small molecules only.** H2 (4 qubits, 2 with Parity) and LiH (a 2-electron, 3-orbital active space)
   in the STO-3G basis. These benchmark the method; classical computers solve them exactly.
   No quantum advantage is claimed.
-- **Seeds.** H2 on the noisy simulator is replicated over 10 seeds (see Results). LiH and the
-  hardware evaluations are still single runs, so differences of a few mHa there are not resolved.
+- **Seeds.** H2 on the noisy simulator is replicated over 10 seeds (on five devices) and LiH over 5 to
+  8 seeds; the hardware evaluations are still single runs, so differences of a few mHa there are not
+  resolved. The recommender's ties are decided with few seeds, which gives low statistical power.
 - **Mixed sweep settings.** Runs from different sweeps (different iteration and shot budgets) are
   ranked together, so rankings partly reflect those budgets.
 - **The simulator is not hardware.** It uses a snapshot of a fake IBM device's noise model, which

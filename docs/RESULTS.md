@@ -119,13 +119,15 @@ Pareto marks: S = on the error-vs-shots front, G = on the error-vs-two-qubit-gat
 
 ## Seed replication (reliability)
 
-### H2: noisy simulator (fake IBM backend), replicated over seeds
+### H2: noisy simulator (fake IBM backend), replicated over seeds (device `FakeSherbrooke`)
 
 80 configurations were each run with up to 10 different seeds (random start point, optimizer randomness and shot noise). Errors are in mHa against the exact energy; "within 1.6 mHa" is the share of seeds that reached chemical accuracy.
 
 - **Best on average:** `parity / uccsd(1) / spsa / readout+zne` with a mean error of **3.7 ± 3.6 mHa** (median 2.4, worst 10.4); it reached chemical accuracy in 40% of seeds.
 - **A single lucky run is misleading:** the lowest error of any single run was 0.11 mHa (`parity / uccsd(1) / spsa / readout+zne`), but that configuration averages 3.7 mHa over seeds.
 - **Reliability:** 0 of 80 configurations reached chemical accuracy in at least half of their seeds.
+
+**Recommendation over seeds.** Recommended for H2 on the noisy backend (bond length 0.735 A): parity / hea_hf(1) / spsa / readout. Over 10 seeds its mean error is 6.1 ± 3.5 mHa (95% interval for the mean ±2.5; median 7.1, worst 11.5) and it reached chemical accuracy (1.6 mHa) in 1 of 10 seeds (95% interval 2% to 40%). It uses 1 two-qubit gate and 1,245,184 shots. None of the 80 configurations reaches chemical accuracy in 50% of seeds, so none is reliably chemically accurate. The lowest mean error is 3.7 mHa (parity / uccsd(1) / spsa / readout+zne); the recommendation is the cheapest of the 3 configurations whose mean error is not significantly higher (one-sided Welch t-test, p > 0.05) and is within 1.5x that mean plus 1.6 mHa.
 
 | Configuration | Seeds | Mean ± std | Median | Worst | Within 1.6 mHa |
 |---|---|---|---|---|---|
@@ -147,6 +149,62 @@ Pareto marks: S = on the error-vs-shots front, G = on the error-vs-two-qubit-gat
 **Mapping** (median over all configurations of the mean error, mHa): parity 37, jordan_wigner 426.
 
 **Hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) vs the plain one (`hea`):** it has a lower mean error in 21 of 28 configurations where the two circuits differ (they are identical when the CNOT layers cancel, e.g. 2 reps on 2 qubits).
+
+### LiH: noisy simulator (fake IBM backend), replicated over seeds (device `FakeSherbrooke`)
+
+7 configurations were each run with up to 8 different seeds (random start point, optimizer randomness and shot noise). Errors are in mHa against the exact energy; "within 1.6 mHa" is the share of seeds that reached chemical accuracy.
+
+- **Best on average:** `parity / hea(1) / spsa / readout` with a mean error of **161.2 ± 162.0 mHa** (median 102.2, worst 479.4); it reached chemical accuracy in 0% of seeds.
+- **A single lucky run is misleading:** the lowest error of any single run was 30.05 mHa (`parity / hea(1) / spsa / readout+zne`), but that configuration averages 176.5 mHa over seeds.
+- **Reliability:** 0 of 7 configurations reached chemical accuracy in at least half of their seeds.
+
+**Recommendation over seeds.** Recommended for LiH on the noisy backend (bond length 1.595 A): parity / hea(1) / spsa / none. Over 8 seeds its mean error is 225.4 ± 189.9 mHa (95% interval for the mean ±158.7; median 184.2, worst 610.8) and it reached chemical accuracy (1.6 mHa) in 0 of 8 seeds (95% interval 0% to 32%). It uses 3 two-qubit gates and 30,822,400 shots. None of the 7 configurations reaches chemical accuracy in 50% of seeds, so none is reliably chemically accurate. The lowest mean error is 161.2 mHa (parity / hea(1) / spsa / readout); the recommendation is the cheapest of the 3 configurations whose mean error is not significantly higher (one-sided Welch t-test, p > 0.05) and is within 1.5x that mean plus 1.6 mHa.
+
+| Configuration | Seeds | Mean ± std | Median | Worst | Within 1.6 mHa |
+|---|---|---|---|---|---|
+| `parity / hea(1) / spsa / readout` | 8 | 161.2 ± 162.0 | 102.2 | 479.4 | 0% |
+| `parity / hea(1) / spsa / readout+zne` | 8 | 176.5 ± 209.9 | 59.3 | 596.2 | 0% |
+| `parity / hea(1) / spsa / none` | 8 | 225.4 ± 189.9 | 184.2 | 610.8 | 0% |
+| `parity / hea_hf(1) / spsa / readout+zne` | 8 | 246.9 ± 265.3 | 147.7 | 856.5 | 0% |
+| `parity / hea_hf(1) / spsa / none` | 8 | 343.7 ± 198.0 | 330.6 | 574.2 | 0% |
+| `parity / uccsd(1) / cobyla / readout+zne` | 5 | 360.1 ± 5.2 | 358.0 | 366.1 | 0% |
+| `parity / hea_hf(1) / spsa / readout` | 8 | 529.3 ± 209.2 | 459.3 | 913.9 | 0% |
+
+**Error mitigation**, Parity mapping only (median over configurations of the mean error, mHa): readout+zne 247, none 285, readout 345.
+
+**Optimizer**, Parity mapping only (median over configurations of the mean error, mHa): spsa 236, cobyla 360.
+
+**Mapping** (median over all configurations of the mean error, mHa): parity 247.
+
+**Hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) vs the plain one (`hea`):** it has a lower mean error in 0 of 3 configurations where the two circuits differ (they are identical when the CNOT layers cancel, e.g. 2 reps on 2 qubits).
+
+
+## Transfer across devices
+
+### H2: does the recommendation transfer across devices?
+
+Mean error (mHa) over seeds for the same configurations on different fake IBM devices (each with its own calibration-based noise model):
+
+| Configuration | Brisbane | Fez | Kyiv | Sherbrooke | Torino |
+|---|---|---|---|---|---|
+| `parity / hea_hf(1) / spsa / readout [4096 shots, 150 it]` | 3.4 | 5.6 | 6.4 | 6.1 | 5.6 |
+| `parity / uccsd(1) / spsa / readout+zne [4096 shots, 150 it]` | 4.3 | 4.8 | 3.3 | 3.7 | 6.6 |
+| `parity / hea_hf(1) / spsa / readout+zne [4096 shots, 150 it]` | 4.4 | 5.3 | 8.5 | 4.5 | 4.9 |
+| `parity / uccsd(1) / spsa / readout [4096 shots, 150 it]` | 17.3 | 11.0 | 13.7 | 17.5 | 10.9 |
+| `parity / uccsd(1) / spsa / zne [4096 shots, 150 it]` | 25.3 | 11.9 | 48.8 | 36.6 | 47.2 |
+| `parity / hea_hf(1) / spsa / zne [4096 shots, 150 it]` | 26.6 | 12.8 | 50.8 | 38.2 | 37.5 |
+| `parity / hea_hf(1) / spsa / none [4096 shots, 150 it]` | 29.0 | 15.9 | 54.2 | 39.4 | 39.2 |
+| `parity / uccsd(1) / spsa / none [4096 shots, 150 it]` | 42.8 | 22.5 | 61.2 | 50.3 | 53.7 |
+
+Recommended configuration per device:
+
+- `FakeBrisbane`: hea_hf(1) / spsa / readout (3.4 ± 2.4 mHa, 3/10 seeds within 1.6 mHa)
+- `FakeFez`: hea_hf(1) / spsa / readout (5.6 ± 2.9 mHa, 2/10 seeds within 1.6 mHa)
+- `FakeKyiv`: uccsd(1) / spsa / readout+zne (3.3 ± 2.4 mHa, 3/10 seeds within 1.6 mHa)
+- `FakeSherbrooke`: hea_hf(1) / spsa / readout (6.1 ± 3.5 mHa, 1/10 seeds within 1.6 mHa)
+- `FakeTorino`: hea_hf(1) / spsa / readout (5.6 ± 4.2 mHa, 2/10 seeds within 1.6 mHa)
+
+Across 5 devices and 8 configurations, the rank correlation of mean errors between devices is 0.83 to 1.00 (1 = identical ordering). The lowest-mean configuration differs between devices (3 different ones), but they are close in error. The recommendation takes 2 different values across devices: FakeBrisbane: hea_hf(1) / spsa / readout; FakeFez: hea_hf(1) / spsa / readout; FakeKyiv: uccsd(1) / spsa / readout+zne; FakeSherbrooke: hea_hf(1) / spsa / readout; FakeTorino: hea_hf(1) / spsa / readout.
 
 
 ## Real hardware results
