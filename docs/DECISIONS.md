@@ -189,3 +189,28 @@ therefore recommends luck.
 - **Simulator vs hardware.** Simulated devices underestimate the unmitigated error (hardware 84.5 mHa vs 22 to 61 mHa simulated for UCCSD) but
   agree on the fully mitigated result (3.0 vs 3.3 to 6.6 mHa). Protocols differ (fixed-parameter hardware evaluation vs optimised under noise).
 
+
+## 2026-10-18: SPSA step-size blow-up at flat starts (new optimizer `spsa_clip`), and what limits LiH
+
+**Finding.** The own SPSA calibrates its step size from the gradient at the start point. Near a stationary point such as the Hartree-Fock
+state the gradient is almost zero, the calibrated step becomes huge, and the first updates throw the parameters far away. On LiH the
+Hartree-Fock-start HEA (`hea_hf`) started at about 30 mHa and was at 600 to 800 mHa within 30 evaluations; it never recovered
+(ideal backend, 8 seeds: 844 mHa mean at 300 evaluations). H2 was unaffected, which is why this went unnoticed. The earlier statement that
+`hea_hf` "does not help LiH" was an artifact of this, not a property of the circuit.
+
+**Fix.** A new optimizer kind `spsa_clip` clips every parameter update to +/- 0.05 rad (value chosen on the ideal LiH backend from
+0.02 to 0.4; larger values still blow up, smaller ones converge slowly). `spsa` is unchanged, so earlier results stay reproducible; the
+two names appear side by side in result tables. Results (8 seeds, mean error): LiH ideal `hea_hf` 844 -> 25 mHa; LiH noisy `hea_hf` +
+readout 529 -> 35 mHa (paired p < 0.001); LiH noisy `hea` + readout+ZNE 177 -> 34 mHa (p = 0.09); all H2 configurations unchanged
+(for example UCCSD + readout+ZNE 3.7 vs 3.8 mHa).
+
+**What limits LiH once the optimizer is fixed.**
+- Hartree-Fock alone is 19.1 mHa off in this active space. The 1-rep HEA, even with no noise at all, ends at about 19 to 35 mHa: it recovers
+  essentially none of the correlation energy. More SPSA budget (300 -> 900 -> 1500) or 4x the shots change nothing material.
+- Expressivity, not noise, is the first limit. On the ideal backend with exact gradients (L-BFGS-B), the HEA reaches 19 mHa at 1 and 2 reps,
+  2.1 mHa (`hea_hf`) at 3 reps and 0.19 mHa at 4 reps (about 9 to 12 two-qubit gates, against 203 for UCCSD).
+- Finding that solution with a shot-noise-tolerant optimizer is harder: the clipped SPSA reaches a median of 3.5 to 5 mHa at 3 reps (3000
+  evaluations, ideal backend), better than Hartree-Fock but not chemically accurate.
+- UCCSD is exact on the ideal backend (0.09 mHa) but its 203 two-qubit gates give a consistent 360 mHa error on the noisy simulator.
+- Honest summary: on today's simulated noisy devices, LiH sits between a circuit that is expressive enough but too deep (UCCSD) and
+  circuits that are shallow enough but not expressive enough (HEA, 1 to 2 reps).

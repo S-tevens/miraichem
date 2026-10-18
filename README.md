@@ -104,7 +104,7 @@ flowchart LR
 | `chemistry/` | PySCF molecules, active-space selection, HF and FCI/CASCI reference energies |
 | `mapping/` | Fermion-to-qubit mapping (Jordan-Wigner, Parity), qubit Hamiltonian, exact-energy check |
 | `ansatz/` | UCCSD and hardware-efficient ansatz, both starting from the Hartree-Fock state |
-| `optim/` | COBYLA, SPSA (seeded) and L-BFGS-B behind one interface; budgets counted in evaluations |
+| `optim/` | COBYLA, SPSA, step-clipped SPSA (`spsa_clip`) and L-BFGS-B behind one interface; budgets counted in evaluations |
 | `backends/` | Ideal statevector, noisy Aer simulator with a fake IBM device, gated real-hardware backend |
 | `mitigation/` | Readout (measurement) mitigation and gate-folding zero-noise extrapolation |
 | `vqe/` | The VQE loop, per-run failure capture and the saved `RunResult` record |
@@ -330,7 +330,6 @@ What this shows, and what it does not:
 - **A hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) fixes a real weakness
   of the plain one**: with 1 rep its best mean error drops from 14.9 to 4.5 mHa, close to UCCSD
   with 1 two-qubit gate instead of 4 (depth 16 instead of 38). With 2 reps on 2 qubits the CNOT layers cancel and the two are identical.
-  This helps H2 but not LiH (see below), so it is not a general fix.
 - Replication was done for H2 on the noisy simulator only. LiH and the hardware runs are single runs.
   Per-seed data is in `results/published/summary/replication_runs.csv`.
 
@@ -382,20 +381,29 @@ or from each other, with one run each.
 
 ### LiH (2 electrons in 3 orbitals, 1.595 A)
 
-- **Ideal simulator:** UCCSD reaches chemical accuracy (0.00 mHa) with every optimizer and both
-  mappings; the hardware-efficient ansatz never does (best 19.1 mHa).
-- **Noisy simulator: nothing comes close.** We repeated the most promising configurations over 8 seeds
-  (UCCSD over 5). The best average is the shallow HEA with SPSA and readout correction at about 160 mHa,
-  and results swing by hundreds of mHa between seeds (worst 479 mHa; no seed reached chemical accuracy).
-  UCCSD needs 203 two-qubit gates and sits at 360 ± 5 mHa on every seed: consistent, but 225 times too
-  large. The best single run of the whole study, 30 mHa, is a lucky draw, not a typical result.
-- **COBYLA stalls on noisy objectives** (about 900 mHa for HEA), whereas SPSA with the same circuit
-  averages 160 to 530 mHa, so the optimizer matters, but SPSA with 300 evaluations is still far from
-  converged on this problem.
-- **The Hartree-Fock-start HEA that helped H2 does not help LiH** (it averages 250 to 530 mHa against
-  160 to 225 mHa for the plain HEA; with 8 seeds the intervals are wide, so we do not claim it is worse).
-- **Reading:** on today's simulated noisy devices, LiH is beyond what this shallow-circuit VQE setup can
-  do reliably, which is a finding about where noisy VQE breaks down, not a tuning issue we have solved.
+Hartree-Fock alone is **19.1 mHa** off in this active space, so a VQE result only means something if it
+beats that.
+
+- **Ideal simulator:** UCCSD reaches chemical accuracy (0.09 mHa). The hardware-efficient ansatz needs
+  depth: 1 and 2 repetitions stay at about 19 mHa (no better than Hartree-Fock), 3 repetitions reach
+  2.1 mHa and 4 repetitions 0.19 mHa (exact gradients, about 12 two-qubit gates against 203 for UCCSD).
+  With SPSA, the only optimizer usable on shot-limited devices, the best is a median of 3.5 mHa.
+- **Noisy simulator: nothing beats Hartree-Fock.** The best configuration, the Hartree-Fock-start HEA
+  with 1 repetition, SPSA, readout + ZNE, averages **26.7 ± 7.7 mHa** over 8 seeds (best single run
+  15.5 mHa, no seed within chemical accuracy). Deeper circuits do worse (3 repetitions 39 mHa, 2
+  repetitions 50 mHa) because their extra gates add more noise than their expressiveness removes. UCCSD
+  sits at 360 mHa on every seed. More SPSA budget (3x) or more shots (4x) did not help.
+- **We found and fixed a bug in our own SPSA on the way.** Its step size is calibrated from the gradient at
+  the start point; at a flat start like Hartree-Fock that calibration blows up and the first updates throw
+  the parameters far away (the Hartree-Fock-start HEA went from 30 mHa to 600 to 800 mHa within 30
+  evaluations). The clipped version `spsa_clip` limits every parameter update to 0.05 rad. It lowered the
+  noisy LiH error of that circuit from 529 to 35 mHa and left all H2 results unchanged. Earlier numbers
+  in this repository that use plain `spsa` are kept, and `spsa` and `spsa_clip` appear side by side in
+  the tables.
+- **COBYLA stalls on noisy objectives** (about 900 mHa for HEA).
+- **Reading:** on today's simulated noisy devices LiH falls between circuits that are expressive enough
+  but too deep (UCCSD) and circuits that are shallow enough but not expressive enough (HEA). That is a
+  finding about where noisy VQE breaks down, not a result we claim to have solved.
 
 ## 8. Limitations and honest notes
 
