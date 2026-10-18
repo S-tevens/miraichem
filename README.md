@@ -286,7 +286,7 @@ Hartree-Fock alone is off by 20.3 mHa at equilibrium and 233 mHa at 2.5 A.
 
 ### H2 on the noisy simulator: effect of mitigation (simulator, 0.735 A)
 
-Best error in mHa over the runs of each group (single seed per configuration, 1024 or 4096 shots):
+Best error in mHa over the runs of each group (**best of single-seed runs, so optimistic**; 1024 or 4096 shots; the replicated table below gives the honest mean and spread):
 
 | Mapping / ansatz | none | readout | zne | readout + zne |
 |---|---|---|---|---|
@@ -297,6 +297,35 @@ Best error in mHa over the runs of each group (single seed per configuration, 10
 The mapping matters most: Parity circuits need 2 qubits and 1 to 4 two-qubit gates, while
 Jordan-Wigner UCCSD needs 4 qubits and 49 two-qubit gates. Across a full bond-length scan, no noisy configuration stayed chemically accurate
 everywhere. The best covered 29% of the bond lengths, with a worst-case error of 17.8 mHa.
+
+### H2 on the noisy simulator: reliability over 10 seeds (simulator, 0.735 A)
+
+The single-seed table above reports the best run, which flatters noisy configurations. We therefore
+repeated 80 configurations with 10 seeds each (random start, optimizer randomness and shot noise;
+4096 shots, 150 evaluations). Mean error, with the standard deviation across seeds and the share of
+seeds that reached chemical accuracy:
+
+| Configuration (Parity mapping) | Mean ± std (mHa) | Worst | Within 1.6 mHa |
+|---|---|---|---|
+| UCCSD / SPSA / readout + ZNE | **3.7 ± 3.6** | 10.4 | 4 of 10 seeds |
+| HEA starting at Hartree-Fock, 1 rep / SPSA / readout + ZNE | 4.5 ± 3.5 | 11.8 | 3 of 10 |
+| HEA, 2 reps / SPSA / readout + ZNE | 7.1 ± 4.7 | 17.5 | 0 of 10 |
+| HEA, 1 rep / SPSA / readout + ZNE | 14.9 ± 7.6 | 23.5 | 0 of 10 |
+| UCCSD / COBYLA / readout + ZNE | 18.1 ± 9.4 | 31.1 | 0 of 10 |
+
+What this shows, and what it does not:
+
+- **No configuration is reliably chemically accurate on the noisy simulator.** The best averages
+  about 4 mHa (2 to 3 times the 1.6 mHa threshold) and reaches it in 4 of 10 seeds. A single run of
+  the same configuration went as low as 0.11 mHa, which is why we report the mean and spread.
+- **The conclusions that hold across seeds:** Parity beats Jordan-Wigner by roughly an order of
+  magnitude, SPSA beats COBYLA on shot-noisy objectives, and readout correction helps most, with ZNE
+  adding a further gain only on top of it.
+- **A hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) fixes a real weakness
+  of the plain one**: with 1 rep its best mean error drops from 14.9 to 4.5 mHa, close to UCCSD
+  with 1 two-qubit gate instead of 4 (depth 16 instead of 38). With 2 reps on 2 qubits the CNOT layers cancel and the two are identical.
+- Replication was done for H2 on the noisy simulator only. LiH and the hardware runs are single runs.
+  Per-seed data is in `results/published/summary/replication_runs.csv`.
 
 ### H2 on real IBM hardware (REAL DEVICE: ibm_fez, 4096 shots, 0.735 A)
 
@@ -330,18 +359,20 @@ or from each other, with one run each.
 - **Small molecules only.** H2 (4 qubits, 2 with Parity) and LiH (a 2-electron, 3-orbital active space)
   in the STO-3G basis. These benchmark the method; classical computers solve them exactly.
   No quantum advantage is claimed.
-- **One seed per configuration.** Runs with shot noise vary, so differences of a few mHa between
-  configurations are not statistically resolved. Repeating the top configurations over several seeds
-  would settle the rankings.
+- **Seeds.** H2 on the noisy simulator is replicated over 10 seeds (see Results). LiH and the
+  hardware evaluations are still single runs, so differences of a few mHa there are not resolved.
 - **Mixed sweep settings.** Runs from different sweeps (different iteration and shot budgets) are
   ranked together, so rankings partly reflect those budgets.
 - **The simulator is not hardware.** It uses a snapshot of a fake IBM device's noise model, which
   omits drift, crosstalk and leakage. The simulator was optimistic against the real device
-  (predicted 0.6 and 1.6 mHa; measured 3.0 and 5.2 mHa).
+  (single-run predictions 0.6 and 1.6 mHa; measured 3.0 and 5.2 mHa). Note that seed-to-seed spread on
+  the simulator alone is several mHa (3.7 ± 3.6 for the UCCSD configuration), so the hardware values are
+  consistent with the simulator once that spread is taken into account.
 - **Hardware budget.** The free plan allows 600 s of QPU time per period, so hardware results are
   fixed-parameter evaluations on one device at one point in time.
-- **The hardware-efficient ansatz** starts from the Hartree-Fock state followed by CNOTs, which moves it
-  away from the Hartree-Fock state; this contributes to its weaker ideal-backend results.
+- **The plain hardware-efficient ansatz** (`hea`) starts from the Hartree-Fock state followed by CNOTs,
+  which moves it away from Hartree-Fock for some qubit counts. We added `hea_hf`, which compensates
+  for this exactly, and report both. Results published before that change use the plain `hea`.
 - **LiH energies** are compared with CASCI in the same active space, not full FCI.
 - **Platform.** Linux, macOS or WSL2; native Windows is not supported (PySCF).
 
@@ -349,7 +380,7 @@ or from each other, with one run each.
 
 - Larger molecules (BeH2, H2O) with reduced active spaces, and qubit tapering (Z2 symmetry).
 - More mitigation: dynamical decoupling, Pauli twirling, probabilistic error amplification.
-- Multi-seed replication and confidence intervals on every ranking.
+- Extend seed replication to LiH, the dissociation scans and confidence intervals on every ranking.
 - A learned recommender that predicts a good configuration for a new molecule from past benchmark data.
 - Comparison across several real backends; exportable PDF/HTML reports.
 

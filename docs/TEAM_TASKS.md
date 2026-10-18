@@ -94,7 +94,7 @@ What is left:
 - **Summary export**: load all results into a pandas DataFrame, Parquet/CSV summary; CLI `report`
   writing `docs/RESULTS.md` from real saved results.
 - **Documentation**: README (all sections the hackathon requires), `ARCHITECTURE.md` with a
-  mermaid diagram, `SCIENCE_PRIMER.md`, setup steps (Linux/WSL2 required, see `docs/DECISIONS.md`).
+  mermaid diagram, setup steps (Linux/WSL2 required, see `docs/DECISIONS.md`).
 - **Demo notebook** `01_h2_end_to_end_demo.ipynb`: runs top to bottom in a few minutes; calls the package only.
 
 Done when: `miraichem sweep configs/sweeps/quick_h2.yaml` produces saved results and the notebook runs on a fresh clone.
