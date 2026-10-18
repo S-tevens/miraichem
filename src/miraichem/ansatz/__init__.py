@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from qiskit import QuantumCircuit
 
-from miraichem.ansatz.hardware_efficient import build_hea
+from miraichem.ansatz.hardware_efficient import build_hea, build_hea_hf
 from miraichem.ansatz.uccsd import build_uccsd, hartree_fock_circuit
 from miraichem.config import AnsatzKind
 from miraichem.mapping.hamiltonian import QubitProblem
@@ -27,10 +27,19 @@ def build_ansatz(kind: AnsatzKind, problem: QubitProblem, reps: int = 1) -> Ansa
         circuit = build_uccsd(problem, reps)
     elif kind == "hea":
         circuit = build_hea(problem, reps)
+    elif kind == "hea_hf":
+        circuit = build_hea_hf(problem, reps)
     else:
         raise ValueError(f"Unknown ansatz: {kind!r}")
     unrolled = circuit.decompose(reps=8)
     return AnsatzInfo(circuit, circuit.num_parameters, unrolled.depth())
 
 
-__all__ = ["AnsatzInfo", "build_ansatz", "build_hea", "build_uccsd", "hartree_fock_circuit"]
+__all__ = [
+    "AnsatzInfo",
+    "build_ansatz",
+    "build_hea",
+    "build_hea_hf",
+    "build_uccsd",
+    "hartree_fock_circuit",
+]

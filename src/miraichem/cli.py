@@ -193,6 +193,81 @@ def rank(
 
 
 @app.command()
+def replicate(
+    molecule: Annotated[str, typer.Option(help="Molecule name, e.g. H2")] = "H2",
+    backend: Annotated[
+        str, typer.Option(help="Only this backend (ideal, noisy), or 'all'")
+    ] = "noisy",
+    min_seeds: Annotated[int, typer.Option(help="Ignore configs with fewer seeds")] = 3,
+    top: Annotated[int, typer.Option(help="Rows to show")] = 15,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    runs_csv: Annotated[
+        Path | None, typer.Option(help="Read per-run rows from this CSV instead of result files")
+    ] = None,
+    out: Annotated[
+        Path | None, typer.Option(help="Also write the summary table to this CSV")
+    ] = None,
+    export_runs: Annotated[
+        Path | None, typer.Option(help="Write the per-run rows (one per seed) to this CSV")
+    ] = None,
+) -> None:
+    """Mean +/- std error over seeds for every replicated configuration."""
+    from miraichem.benchmark.replication import (
+        config_label,
+        read_runs_csv,
+        runs_frame,
+        summarize,
+    )
+
+    df = (
+        read_runs_csv(runs_csv) if runs_csv else runs_frame(load_all_results(results_dir, molecule))
+    )
+    table = summarize(df, molecule, min_seeds=min_seeds)
+    if table.empty:
+        console.print("[yellow]No replicated configurations found.[/yellow]")
+        raise typer.Exit(1)
+    if backend != "all":
+        table = table[table.backend == backend]
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        table.to_csv(out, index=False)
+    if export_runs:
+        keep = df[df.molecule.str.lower() == molecule.lower()]
+        keys = table[
+            [
+                "mapping",
+                "ansatz",
+                "reps",
+                "optimizer",
+                "maxiter",
+                "backend",
+                "shots",
+                "mitigation",
+                "bond_length",
+            ]
+        ]
+        keep = keep.merge(keys, on=list(keys.columns))
+        export_runs.parent.mkdir(parents=True, exist_ok=True)
+        keep.sort_values([*keys.columns, "seed"]).to_csv(export_runs, index=False)
+    t = Table(title=f"{molecule} replicated over seeds ({backend}), best mean error first")
+    t.add_column("Configuration", no_wrap=True)
+    for col in ("Seeds", "Mean", "Std", "Median", "Worst", "<1.6 mHa"):
+        t.add_column(col, justify="right", no_wrap=True)
+    for _, r in table.head(top).iterrows():
+        t.add_row(
+            config_label(r),
+            str(r["n_seeds"]),
+            f"{r['mean_mHa']:.2f}",
+            f"{r['std_mHa']:.2f}",
+            f"{r['median_mHa']:.2f}",
+            f"{r['max_mHa']:.2f}",
+            f"{r['frac_chem_acc']:.0%}",
+        )
+    console.print(t)
+    console.print("Errors in mHa vs the exact energy; chemical accuracy is 1.6 mHa.")
+
+
+@app.command()
 def report(
     results_dir: Path = DEFAULT_RESULTS_DIR,
     hardware_dir: Path = DEFAULT_HARDWARE_DIR,
@@ -206,7 +281,15 @@ def report(
     if not results:
         console.print(f"[red]No saved results in {results_dir}/. Run a sweep first.[/red]")
         raise typer.Exit(1)
-    path = write_report(results, output, load_hardware_results(hardware_dir))
+    replication = None
+    runs_csv = Path(results_dir) / "summary" / "replication_runs.csv"
+    if runs_csv.is_file():
+        from miraichem.benchmark.replication import read_runs_csv
+
+        replication = read_runs_csv(runs_csv)
+    path = write_report(
+        results, output, load_hardware_results(hardware_dir), replication=replication
+    )
     csv_path, parquet_path = export_summary(results, export_dir)
     console.print(f"Wrote {path} from {len(results)} runs.\nSummary: {csv_path} and {parquet_path}")
 

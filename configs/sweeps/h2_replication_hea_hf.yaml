@@ -1,0 +1,13 @@
+# Same grid and seeds as h2_replication.yaml, but with the HEA that starts exactly at the
+# Hartree-Fock state (hea_hf), to test whether the start-state fix changes reliability.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [jordan_wigner, parity]
+ansatzes: [hea_hf]
+ansatz_reps: [1, 2]
+optimizers: [cobyla, spsa]
+maxiter: 150
+backends: [noisy]
+shots: [4096]
+mitigations: [none, readout, zne, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]

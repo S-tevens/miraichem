@@ -1,0 +1,17 @@
+# Seed replication of the H2 noisy benchmark at equilibrium (0.735 A): same grid as full_h2 at
+# 4096 shots (seed 42 is reused from the cached full_h2 runs), repeated over 10 seeds so every
+# configuration gets a mean +/- std instead of a single lucky or unlucky number.
+# Roughly 15-25 minutes with --max-workers 8.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [jordan_wigner, parity]
+ansatzes: [uccsd, hea]
+ansatz_reps: [1, 2]
+optimizers: [cobyla, spsa]
+maxiter: 150
+backends: [noisy]
+shots: [4096]
+mitigations: [none, readout, zne, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+exclude:
+  - {ansatz: uccsd, ansatz_reps: 2}

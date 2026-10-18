@@ -18,6 +18,7 @@ from miraichem.analysis.dissociation import DissociationCurve
 from miraichem.backends.hardware_eval import HardwareResult
 from miraichem.benchmark.metrics import CHEMICAL_ACCURACY_HA
 from miraichem.benchmark.ranking import ERROR_FLOOR_MHA, RankedRun, describe
+from miraichem.benchmark.replication import RUNS_CSV, config_label, read_runs_csv, summarize
 from miraichem.benchmark.storage import DEFAULT_RESULTS_DIR, NON_RUN_DIRS, load_all_results
 from miraichem.vqe.result import RunResult
 
@@ -320,3 +321,42 @@ digraph G {
   mol -> ref; mol -> ham -> sweep -> back; ref -> rank; back -> rank;
 }
 """
+
+
+def load_replication(results_dir: Path = DEFAULT_RESULTS_DIR):
+    """Per-seed replication table (``summary/replication_runs.csv``), or None if there is none."""
+    path = Path(results_dir) / "summary" / RUNS_CSV
+    if not path.is_file():
+        return None
+    try:
+        return read_runs_csv(path)
+    except Exception:  # noqa: BLE001 - a bad file must not take the dashboard down
+        return None
+
+
+def replication_summary(runs, molecule: str, backend: str, top: int = 15):
+    """Replicated configurations for one molecule/backend, best mean error first."""
+    table = summarize(runs, molecule, min_seeds=5)
+    if table.empty:
+        return table
+    table = table[table.backend == backend].sort_values("mean_mHa").head(top).reset_index(drop=True)
+    table["label"] = [config_label(r) for _, r in table.iterrows()]
+    return table
+
+
+def replication_figure(table) -> go.Figure:
+    """Mean error per configuration with +/- one standard deviation across seeds."""
+    t = table.iloc[::-1]  # best at the top of a horizontal bar chart
+    fig = go.Figure(
+        go.Bar(
+            x=t.mean_mHa,
+            y=t.label,
+            orientation="h",
+            marker_color=TEAL,
+            error_x={"type": "data", "array": t.std_mHa, "color": GREY},
+            hovertemplate="%{y}<br>mean %{x:.1f} mHa<extra></extra>",
+        )
+    )
+    fig.add_vline(x=CA_MHA, line_dash="dash", line_color=RED, annotation_text="1.6 mHa")
+    fig.update_xaxes(title="Mean error over seeds (mHa), bars = ±1 std")
+    return _layout(fig, "Reliability over random seeds", height=max(360, 28 * len(t) + 140))

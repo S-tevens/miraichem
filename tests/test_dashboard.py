@@ -192,6 +192,7 @@ def test_app_runs_with_all_tabs(results_dir, monkeypatch):
         "Mitigation",
         "Real hardware",
         "Recommendation",
+        "Reliability (seeds)",
     ]
     assert at.title[0].value == "MiraiChem"
     metrics = {m.label: m.value for m in at.metric}

@@ -33,9 +33,12 @@ from miraichem.dashboard_helpers import (
     hardware_table,
     has_run_results,
     load_dashboard_data,
+    load_replication,
     mitigation_figure,
     mitigation_summary,
     pareto_figure,
+    replication_figure,
+    replication_summary,
     run_label,
 )
 
@@ -49,6 +52,7 @@ TAB_NAMES = [
     "Mitigation",
     "Real hardware",
     "Recommendation",
+    "Reliability (seeds)",
 ]
 
 
@@ -336,3 +340,46 @@ with tabs[6]:
         )
     except ValueError as exc:
         _empty(str(exc))
+
+# --- reliability over seeds ---
+
+with tabs[7]:
+    st.subheader("Reliability over random seeds")
+    runs = load_replication(results_dir)
+    table = replication_summary(runs, molecule, backend) if runs is not None else None
+    if table is None or table.empty:
+        _empty(
+            "No seed-replicated results for this molecule and backend.",
+            "miraichem sweep configs/sweeps/h2_replication.yaml --max-workers 4",
+        )
+    else:
+        st.plotly_chart(replication_figure(table), width="stretch", key="rep_fig")
+        st.dataframe(
+            table[
+                [
+                    "label",
+                    "n_seeds",
+                    "mean_mHa",
+                    "std_mHa",
+                    "median_mHa",
+                    "max_mHa",
+                    "frac_chem_acc",
+                ]
+            ].rename(
+                columns={
+                    "label": "Configuration",
+                    "n_seeds": "Seeds",
+                    "mean_mHa": "Mean (mHa)",
+                    "std_mHa": "Std",
+                    "median_mHa": "Median",
+                    "max_mHa": "Worst",
+                    "frac_chem_acc": "Share < 1.6 mHa",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+        st.caption(
+            "Each configuration was run with several seeds (random start, optimizer randomness, shot "  # noqa: E501
+            "noise). A single run can be lucky; the mean and spread are what to trust."
+        )

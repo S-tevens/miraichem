@@ -15,6 +15,7 @@ from miraichem.backends.hardware import DEFAULT_HARDWARE_DIR
 from miraichem.backends.hardware_eval import HardwareResult
 from miraichem.benchmark.ranking import Weights, describe, recommend
 from miraichem.benchmark.ranking_scan import recommend_across_scan
+from miraichem.benchmark.replication import config_label, summarize
 from miraichem.vqe.result import RunResult
 
 MITIGATIONS = ["none", "readout", "zne", "readout+zne"]
@@ -180,8 +181,8 @@ def _backend_section(results: list[RunResult], molecule: str, backend: str, top:
             parts += [
                 "",
                 f"**Effect of error mitigation** at bond length {bond} A (best error in mHa, with "
-                "the median and number of runs in brackets; one seed per configuration, so small "
-                "differences are not statistically meaningful):",
+                "the median and number of runs in brackets; the best of a few single-seed runs is an "  # noqa: E501
+                "optimistic number, see the seed-replication section for mean and spread):",
                 "",
                 table,
             ]
@@ -226,6 +227,90 @@ def _hardware_section(hardware: list[HardwareResult]) -> str:
     return "\n".join(parts)
 
 
+def _replication_section(runs, top: int = 10) -> str | None:
+    """Mean +/- std over seeds. ``runs`` is the per-run table from ``replication.runs_frame``."""
+    if runs is None or len(runs) == 0:
+        return None
+    table = summarize(runs, min_seeds=5)
+    if table.empty:
+        return None
+    parts: list[str] = []
+    for (mol, backend), t in table.groupby(["molecule", "backend"]):
+        t = t.sort_values("mean_mHa").reset_index(drop=True)
+        n_seeds = int(t.n_seeds.max())
+        best = t.iloc[0]
+        lucky = t.loc[t.min_mHa.idxmin()]
+        reliable = int((t.frac_chem_acc >= 0.5).sum())
+        parts += [
+            f"### {mol}: {BACKEND_TITLES.get(backend, backend)}, replicated over seeds",
+            "",
+            f"{len(t)} configurations were each run with up to {n_seeds} different seeds (random "
+            "start point, optimizer randomness and shot noise). Errors are in mHa against the exact "  # noqa: E501
+            'energy; "within 1.6 mHa" is the share of seeds that reached chemical accuracy.',
+            "",
+            f"- **Best on average:** `{config_label(best)}` with a mean error of "
+            f"**{best.mean_mHa:.1f} ± {best.std_mHa:.1f} mHa** (median {best.median_mHa:.1f}, worst "  # noqa: E501
+            f"{best.max_mHa:.1f}); it reached chemical accuracy in {best.frac_chem_acc:.0%} of seeds.",  # noqa: E501
+            f"- **A single lucky run is misleading:** the lowest error of any single run was "
+            f"{lucky.min_mHa:.2f} mHa (`{config_label(lucky)}`), but that configuration averages "
+            f"{lucky.mean_mHa:.1f} mHa over seeds.",
+            f"- **Reliability:** {reliable} of {len(t)} configurations reached chemical accuracy in at "  # noqa: E501
+            "least half of their seeds.",
+            "",
+        ]
+        rows = [
+            [
+                f"`{config_label(r)}`",
+                str(int(r.n_seeds)),
+                f"{r.mean_mHa:.1f} ± {r.std_mHa:.1f}",
+                f"{r.median_mHa:.1f}",
+                f"{r.max_mHa:.1f}",
+                f"{r.frac_chem_acc:.0%}",
+            ]
+            for r in t.head(top).itertuples()
+        ]
+        parts += [
+            md_table(
+                ["Configuration", "Seeds", "Mean ± std", "Median", "Worst", "Within 1.6 mHa"], rows
+            ),
+            "",
+        ]
+        par = t[t["mapping"] == "parity"]
+        for factor, label in (("mitigation", "Error mitigation"), ("optimizer", "Optimizer")):
+            med = par.groupby(factor).mean_mHa.median().sort_values()
+            parts += [
+                f"**{label}**, Parity mapping only (median over configurations of the mean error, "
+                "mHa): " + ", ".join(f"{k} {v:.0f}" for k, v in med.items()) + ".",
+                "",
+            ]
+        med = t.groupby("mapping").mean_mHa.median().sort_values()
+        parts.append(
+            "**Mapping** (median over all configurations of the mean error, mHa): "
+            + ", ".join(f"{k} {v:.0f}" for k, v in med.items())
+            + "."
+        )
+        hf = t[t.ansatz.isin(["hea", "hea_hf"])]
+        pairs = hf.pivot_table(
+            index=["mapping", "reps", "optimizer", "mitigation"],
+            columns="ansatz",
+            values="mean_mHa",
+        )
+        if {"hea", "hea_hf"} <= set(pairs.columns):
+            pairs = pairs.dropna()
+            changed = pairs[(pairs.hea - pairs.hea_hf).abs() > 1e-9]
+            if len(changed):
+                better = int((changed.hea_hf < changed.hea).sum())
+                parts += [
+                    "",
+                    "**Hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) "
+                    f"vs the plain one (`hea`):** it has a lower mean error in {better} of "
+                    f"{len(changed)} configurations where the two circuits differ (they are "
+                    "identical when the CNOT layers cancel, e.g. 2 reps on 2 qubits).",
+                ]
+        parts.append("")
+    return "\n".join(parts)
+
+
 def _figures_section(molecules: list[str], figures_dir: Path) -> str | None:
     lines = []
     for mol in molecules:
@@ -237,8 +322,9 @@ def _figures_section(molecules: list[str], figures_dir: Path) -> str | None:
 CAVEATS = """\
 - **Small molecules.** H2 (4 qubits, 2 with Parity) and LiH (a 2-electron, 3-orbital active space) in
   the STO-3G basis. These are benchmarks of the *method*, not chemistry that a classical computer cannot do.
-- **One seed per configuration.** Results with shot noise (noisy simulator, SPSA) vary from run to run;
-  differences of a few mHa between configurations are not statistically resolved.
+- **Seeds.** Most single-seed tables show the best of a few runs, which is optimistic for noisy
+  configurations. The seed-replication section (10 seeds per configuration, H2 noisy simulator only)
+  gives the honest mean and spread; LiH and the hardware runs are still single runs.
 - **Mixed sweep settings.** Runs from different sweeps (different `maxiter` and shot budgets) are ranked
   together, so rankings partly reflect those budgets.
 - **Simulator is not hardware.** The noisy simulator uses a snapshot of a fake IBM device's noise model;
@@ -253,6 +339,7 @@ def generate_report(
     hardware: list[HardwareResult] | None = None,
     figures_dir: Path | None = Path("docs/figures"),
     top: int = 5,
+    replication=None,
 ) -> str:
     """Build the RESULTS.md text from saved results."""
     hardware = hardware or []
@@ -269,6 +356,9 @@ def generate_report(
             section = _backend_section(results, mol, backend, top)
             if section:
                 parts += [section, ""]
+    rep = _replication_section(replication)
+    if rep:
+        parts += ["## Seed replication (reliability)", "", rep, ""]
     parts += ["## Real hardware results", "", _hardware_section(hardware), ""]
     figures = _figures_section(molecules, figures_dir) if figures_dir else None
     if figures:
@@ -282,10 +372,13 @@ def write_report(
     output: Path,
     hardware: list[HardwareResult] | None = None,
     figures_dir: Path | None = Path("docs/figures"),
+    replication=None,
 ) -> Path:
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(generate_report(results, hardware, figures_dir), encoding="utf-8")
+    output.write_text(
+        generate_report(results, hardware, figures_dir, replication=replication), encoding="utf-8"
+    )
     return output
 
 

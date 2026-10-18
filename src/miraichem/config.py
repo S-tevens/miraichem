@@ -15,7 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Mapping = Literal["jordan_wigner", "parity"]
-AnsatzKind = Literal["hea", "uccsd"]
+AnsatzKind = Literal["hea", "hea_hf", "uccsd"]
 OptimizerKind = Literal["cobyla", "spsa", "lbfgsb"]
 BackendKind = Literal["ideal", "noisy", "hardware"]
 MitigationKind = Literal["none", "readout", "zne", "readout+zne"]
@@ -140,6 +140,10 @@ class SweepConfig(BaseModel):
     zne_scales: list[float] = [1.0, 3.0]
     zne_method: Literal["linear", "richardson"] = "linear"
     seed: int = 42
+    seeds: list[int] | None = Field(
+        None,
+        description="Replicate every configuration once per seed. If set, it replaces ``seed``.",
+    )
     exclude: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Rules: a combo is dropped if it matches ALL key/value pairs of any rule.",
@@ -157,8 +161,9 @@ class SweepConfig(BaseModel):
             self.backends,
             self.shots,
             self.mitigations,
+            self.seeds if self.seeds else [self.seed],
         )
-        for bl, mp, an, reps, opt, be, sh, mit in grid:
+        for bl, mp, an, reps, opt, be, sh, mit, seed in grid:
             if invalid_combination(opt, be, mit):
                 continue
             if be == "ideal" and sh != self.shots[0]:
@@ -177,7 +182,7 @@ class SweepConfig(BaseModel):
                 mitigation=mit,
                 zne_scales=self.zne_scales,
                 zne_method=self.zne_method,
-                seed=self.seed,
+                seed=seed,
             )
             if any(all(fields.get(k) == v for k, v in rule.items()) for rule in self.exclude):
                 continue
