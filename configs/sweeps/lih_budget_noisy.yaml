@@ -1,0 +1,15 @@
+# Is the noisy LiH failure an under-converged optimizer or shot noise? The best noisy configuration
+# so far (plain HEA, SPSA, Parity, readout correction) with 3x the SPSA budget (900 evaluations),
+# 4x the shots (16384), and both. The 300 evaluations / 4096 shots baseline is already in
+# results from lih_replication (seeds 42-47 reused). Slow: expect 30-60 minutes with 8 workers.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea]
+ansatz_reps: [1]
+optimizers: [spsa]
+maxiters: [300, 900]
+backends: [noisy]
+shots: [4096, 16384]
+mitigations: [readout]
+seeds: [42, 43, 44, 45, 46, 47]

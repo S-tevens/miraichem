@@ -1,0 +1,13 @@
+# Can the clipped SPSA (the optimizer usable on noisy backends) find the 3-4 layer hardware-efficient
+# solutions that L-BFGS-B finds on the ideal backend (see lih_expressivity_ideal)? Ideal backend,
+# 3 and 4 repetitions, growing evaluation budgets. Cheap.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [3, 4]
+optimizers: [spsa_clip]
+maxiters: [600, 1500, 3000]
+backends: [ideal]
+mitigations: [none]
+seeds: [42, 43, 44, 45, 46, 47]

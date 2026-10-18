@@ -48,11 +48,26 @@ class _Recorder:
         return value
 
 
-def _spsa(rec: _Recorder, x0: np.ndarray, max_iter: int, seed: int) -> np.ndarray:
+SPSA_CLIP_STEP = 0.05  # radians; largest change of any parameter in one `spsa_clip` update
+
+
+def _spsa(
+    rec: _Recorder,
+    x0: np.ndarray,
+    max_iter: int,
+    seed: int,
+    max_step: float | None = None,
+) -> np.ndarray:
     """Simultaneous Perturbation Stochastic Approximation (Spall).
 
     Estimates the gradient from just 2 evaluations per step by perturbing ALL parameters at once
     with random +/-1 signs, which makes it cheap and tolerant to shot noise.
+
+    The step size is calibrated from the gradient at the start point. Starting at or near a
+    stationary point (for example the Hartree-Fock state, where the gradient is almost zero) makes
+    that calibration blow up and the first updates throw the parameters far away. With
+    ``max_step`` set, every parameter update is clipped to +/- ``max_step`` radians, which keeps
+    the optimiser near good starting points. ``max_step=None`` is the original, unclipped SPSA.
     """
     rng = np.random.default_rng(seed)
     n = len(x0)
@@ -72,7 +87,10 @@ def _spsa(rec: _Recorder, x0: np.ndarray, max_iter: int, seed: int) -> np.ndarra
         c_k = c0 / (k + 1) ** gamma
         delta = rng.choice([-1.0, 1.0], n)
         g = (rec(x + c_k * delta) - rec(x - c_k * delta)) / (2 * c_k) * (1.0 / delta)
-        x = x - a_k * g
+        step = a_k * g
+        if max_step is not None:
+            step = np.clip(step, -max_step, max_step)
+        x = x - step
     return x
 
 
@@ -89,9 +107,9 @@ def minimize(
         # Finite-difference gradients cost n+1 evaluations each; only valid on exact backends.
         res = scipy_minimize(rec, x0, method="L-BFGS-B", options={"maxfun": maxiter, "ftol": 1e-12})
         x = res.x
-    elif kind == "spsa":
+    elif kind in ("spsa", "spsa_clip"):
         budget = max((maxiter - 6) // 2, 1)  # 6 evaluations go to calibration
-        x = _spsa(rec, x0, budget, seed)
+        x = _spsa(rec, x0, budget, seed, SPSA_CLIP_STEP if kind == "spsa_clip" else None)
     else:
         raise ValueError(f"Unknown optimizer: {kind!r}")
     best = int(np.argmin(rec.trace))

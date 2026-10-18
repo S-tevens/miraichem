@@ -109,3 +109,12 @@ def test_sweep_devices_expand_and_have_distinct_hashes():
     assert len(runs) == 4
     assert {r.fake_backend_name for r in runs} == {"FakeSherbrooke", "FakeFez"}
     assert len({r.config_hash() for r in runs}) == 4
+
+
+def test_sweep_maxiters_expand_and_have_distinct_hashes():
+    sweep = SweepConfig(
+        molecule=H2, bond_lengths=[0.735], backends=["noisy"], maxiters=[100, 300], seed=1
+    )
+    runs = sweep.expand()
+    assert sorted(r.maxiter for r in runs) == [100, 300]
+    assert len({r.config_hash() for r in runs}) == 2

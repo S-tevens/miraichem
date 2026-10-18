@@ -1,0 +1,14 @@
+# LiH on FakeSherbrooke with the clipped SPSA, to compare with lih_replication (plain SPSA) seed by
+# seed: plain and Hartree-Fock-start HEA, Parity, readout and readout+ZNE, 300 evaluations, 4096
+# shots, 8 seeds. Slow: about 30 minutes with 8 workers.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa_clip]
+maxiter: 300
+backends: [noisy]
+shots: [4096]
+mitigations: [readout, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49]

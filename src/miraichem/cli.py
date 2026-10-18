@@ -328,7 +328,7 @@ def replicate(
         t.add_column(col, justify="right", no_wrap=True)
     for _, r in table.head(top).iterrows():
         t.add_row(
-            config_label(r),
+            config_label(r, detail=True),
             str(r["n_seeds"]),
             f"{r['mean_mHa']:.2f}",
             f"{r['std_mHa']:.2f}",

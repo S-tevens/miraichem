@@ -135,7 +135,7 @@ def replicated_configs(
         keyd = dict(zip(GROUP_NO_SEED, key, strict=True))
         out.append(
             ReplicatedConfig(
-                label=config_label(keyd),
+                label=config_label(keyd, detail=True),
                 key=keyd,
                 errors=[float(x) for x in e],
                 gates=gates,

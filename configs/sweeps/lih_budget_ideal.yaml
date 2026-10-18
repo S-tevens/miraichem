@@ -1,0 +1,14 @@
+# Is the LiH failure the ansatz or the optimizer? SPSA on the ideal (noise-free, exact-value)
+# simulator with growing iteration budgets, for the plain and Hartree-Fock-start HEA. If more
+# evaluations do not push the error below about 19 mHa (the best ideal HEA result), the ansatz,
+# not noise or the optimizer budget, is the limit. Cheap: a few minutes.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa]
+maxiters: [300, 900, 1500]
+backends: [ideal]
+mitigations: [none]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49]

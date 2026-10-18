@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 Mapping = Literal["jordan_wigner", "parity"]
 AnsatzKind = Literal["hea", "hea_hf", "uccsd"]
-OptimizerKind = Literal["cobyla", "spsa", "lbfgsb"]
+OptimizerKind = Literal["cobyla", "spsa", "spsa_clip", "lbfgsb"]
 BackendKind = Literal["ideal", "noisy", "hardware"]
 MitigationKind = Literal["none", "readout", "zne", "readout+zne"]
 
@@ -133,6 +133,10 @@ class SweepConfig(BaseModel):
     ansatz_reps: list[int] = [1]
     optimizers: list[OptimizerKind] = ["cobyla"]
     maxiter: int = 200
+    maxiters: list[int] | None = Field(
+        None,
+        description="Run every configuration with each of these budgets. Replaces ``maxiter``.",
+    )
     backends: list[BackendKind] = ["ideal"]
     fake_backend_name: str = "FakeSherbrooke"
     shots: list[int] = [4096]
@@ -168,8 +172,9 @@ class SweepConfig(BaseModel):
             self.mitigations,
             self.seeds if self.seeds else [self.seed],
             self.fake_backend_names or [self.fake_backend_name],
+            self.maxiters or [self.maxiter],
         )
-        for bl, mp, an, reps, opt, be, sh, mit, seed, device in grid:
+        for bl, mp, an, reps, opt, be, sh, mit, seed, device, maxiter in grid:
             if invalid_combination(opt, be, mit):
                 continue
             if be == "ideal" and sh != self.shots[0]:
@@ -181,7 +186,7 @@ class SweepConfig(BaseModel):
                 ansatz=an,
                 ansatz_reps=reps,
                 optimizer=opt,
-                maxiter=self.maxiter,
+                maxiter=maxiter,
                 backend=be,
                 fake_backend_name=device,
                 shots=sh,

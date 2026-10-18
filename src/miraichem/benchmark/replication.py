@@ -118,19 +118,24 @@ def summarize(df: pd.DataFrame, molecule: str | None = None, min_seeds: int = 3)
     return out.sort_values("mean_mHa").reset_index(drop=True) if not out.empty else out
 
 
-def config_label(row) -> str:
+def config_label(row, detail: bool = False) -> str:
     """Short readable name, e.g. ``parity / uccsd(1) / spsa / readout+zne``.
 
-    ``row`` may be a pandas row, a namedtuple from ``itertuples`` or a dict.
+    With ``detail`` the evaluation budget and shot count are appended, which is what tells apart
+    otherwise identical configurations. ``row`` may be a pandas row, a namedtuple or a dict.
     """
 
     def get(key: str):
         return row[key] if isinstance(row, dict | pd.Series) else getattr(row, key)
 
-    return (
+    label = (
         f"{get('mapping')} / {get('ansatz')}({get('reps')}) / "
         f"{get('optimizer')} / {get('mitigation')}"
     )
+    if detail:
+        shots = get("shots")
+        label += f" [{int(get('maxiter'))} evals" + (f", {int(shots)} shots]" if shots else "]")
+    return label
 
 
 def read_runs_csv(path) -> pd.DataFrame:

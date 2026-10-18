@@ -1,0 +1,14 @@
+# H2 reliability with the clipped SPSA on FakeSherbrooke: the focused grid of h2_devices (UCCSD and
+# Hartree-Fock-start HEA, Parity, 4096 shots, 150 evaluations, 10 seeds), to check that the fix does
+# not hurt a case where plain SPSA already worked. About 10 minutes with 8 workers.
+molecule: h2.yaml
+bond_lengths: [0.735]
+mappings: [parity]
+ansatzes: [uccsd, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa_clip]
+maxiter: 150
+backends: [noisy]
+shots: [4096]
+mitigations: [none, readout, zne, readout+zne]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]

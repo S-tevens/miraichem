@@ -1,0 +1,12 @@
+# Same as lih_budget_ideal but with the clipped SPSA (spsa_clip), which stops the first updates from
+# throwing the parameters away from a good start such as Hartree-Fock. Cheap: a few minutes.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [1]
+optimizers: [spsa_clip]
+maxiters: [300, 900]
+backends: [ideal]
+mitigations: [none]
+seeds: [42, 43, 44, 45, 46, 47, 48, 49]

@@ -1,0 +1,15 @@
+# Does a deeper Hartree-Fock-start HEA beat Hartree-Fock (19.1 mHa) for LiH on the noisy simulator?
+# 2 and 3 repetitions (6 and 9 two-qubit gates before transpilation, against 203 for UCCSD), the
+# clipped SPSA with 1500 evaluations, readout + ZNE, 4096 shots, 6 seeds. Slow: about 40 minutes
+# with 8 workers.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea_hf]
+ansatz_reps: [2, 3]
+optimizers: [spsa_clip]
+maxiter: 1500
+backends: [noisy]
+shots: [4096]
+mitigations: [readout+zne]
+seeds: [42, 43, 44, 45, 46, 47]

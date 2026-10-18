@@ -260,11 +260,11 @@ def _replication_section(runs, top: int = 10) -> str | None:
             "start point, optimizer randomness and shot noise). Errors are in mHa against the exact "  # noqa: E501
             'energy; "within 1.6 mHa" is the share of seeds that reached chemical accuracy.',
             "",
-            f"- **Best on average:** `{config_label(best)}` with a mean error of "
+            f"- **Best on average:** `{config_label(best, detail=True)}` with a mean error of "
             f"**{best.mean_mHa:.1f} ± {best.std_mHa:.1f} mHa** (median {best.median_mHa:.1f}, worst "  # noqa: E501
             f"{best.max_mHa:.1f}); it reached chemical accuracy in {best.frac_chem_acc:.0%} of seeds.",  # noqa: E501
             f"- **A single lucky run is misleading:** the lowest error of any single run was "
-            f"{lucky.min_mHa:.2f} mHa (`{config_label(lucky)}`), but that configuration averages "
+            f"{lucky.min_mHa:.2f} mHa (`{config_label(lucky, detail=True)}`), but that configuration averages "  # noqa: E501
             f"{lucky.mean_mHa:.1f} mHa over seeds.",
             f"- **Reliability:** {reliable} of {len(t)} configurations reached chemical accuracy in at "  # noqa: E501
             "least half of their seeds.",
@@ -272,7 +272,7 @@ def _replication_section(runs, top: int = 10) -> str | None:
         ]
         rows = [
             [
-                f"`{config_label(r)}`",
+                f"`{config_label(r, detail=True)}`",
                 str(int(r.n_seeds)),
                 f"{r.mean_mHa:.1f} ± {r.std_mHa:.1f}",
                 f"{r.median_mHa:.1f}",
@@ -310,7 +310,7 @@ def _replication_section(runs, top: int = 10) -> str | None:
         )
         hf = t[t.ansatz.isin(["hea", "hea_hf"])]
         pairs = hf.pivot_table(
-            index=["mapping", "reps", "optimizer", "mitigation"],
+            index=["mapping", "reps", "optimizer", "mitigation", "maxiter", "shots"],
             columns="ansatz",
             values="mean_mHa",
         )
@@ -318,13 +318,18 @@ def _replication_section(runs, top: int = 10) -> str | None:
             pairs = pairs.dropna()
             changed = pairs[(pairs.hea - pairs.hea_hf).abs() > 1e-9]
             if len(changed):
+                by_opt = changed.groupby(level="optimizer").apply(
+                    lambda g: f"{int((g.hea_hf < g.hea).sum())} of {len(g)} with `{g.name}`",
+                    include_groups=False,
+                )
                 better = int((changed.hea_hf < changed.hea).sum())
                 parts += [
                     "",
                     "**Hardware-efficient ansatz that starts exactly at Hartree-Fock (`hea_hf`) "
                     f"vs the plain one (`hea`):** it has a lower mean error in {better} of "
-                    f"{len(changed)} configurations where the two circuits differ (they are "
-                    "identical when the CNOT layers cancel, e.g. 2 reps on 2 qubits).",
+                    f"{len(changed)} configurations where the two circuits differ "
+                    f"({'; '.join(by_opt)}). They are identical when the CNOT layers cancel, "
+                    "e.g. 2 reps on 2 qubits.",
                 ]
         parts.append("")
     return "\n".join(parts)

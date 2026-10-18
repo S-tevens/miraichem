@@ -1,0 +1,12 @@
+# How many hardware-efficient layers does LiH need to get below Hartree-Fock (19.1 mHa)? Ideal
+# backend, L-BFGS-B (exact gradients), 1 to 4 repetitions, plain and Hartree-Fock-start HEA. Cheap.
+molecule: lih.yaml
+bond_lengths: [1.595]
+mappings: [parity]
+ansatzes: [hea, hea_hf]
+ansatz_reps: [1, 2, 3, 4]
+optimizers: [lbfgsb]
+maxiter: 600
+backends: [ideal]
+mitigations: [none]
+seeds: [42, 43, 44, 45, 46, 47]
