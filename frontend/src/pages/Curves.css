@@ -1,0 +1,42 @@
+.curves {
+  position: relative;
+}
+
+.cv__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cv__line--exact {
+  stroke: var(--c-exact);
+}
+
+.cv__line--hf {
+  stroke: var(--c-hf);
+  stroke-dasharray: 5 4;
+}
+
+.cv__line--vqe {
+  stroke: var(--c-vqe);
+}
+
+.cv__pt {
+  fill: var(--c-vqe);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.curves__tip {
+  position: absolute;
+  top: 8px;
+  z-index: 4;
+  pointer-events: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #04080a;
+  color: var(--fg);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}

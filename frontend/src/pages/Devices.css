@@ -1,0 +1,146 @@
+.devices__body {
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .devices__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.devices__chart {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* a table, laid out as a grid so the dots stay aligned and the columns stay responsive */
+.dgrid {
+  display: block;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dgrid thead,
+.dgrid tbody {
+  display: block;
+}
+
+.dgrid tr {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(130px, 1.6fr) repeat(var(--n), minmax(48px, 1fr));
+}
+
+
+.dgrid thead th {
+  font-weight: 300;
+  font-size: 0.82rem;
+  color: var(--fg-2);
+  text-align: center;
+  padding: 0 0 10px;
+}
+
+.dgrid thead .dgrid__corner {
+  text-align: left;
+}
+
+.dgrid tbody tr {
+  border-top: 1px solid rgba(176, 214, 211, 0.08);
+}
+
+.dgrid__name {
+  text-align: left;
+  font-weight: 300;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: var(--fg);
+  padding: 10px 12px 10px 0;
+}
+
+.dgrid td {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  padding: 8px 0;
+  min-height: 62px;
+}
+
+.dgrid__dot {
+  display: block;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.8;
+}
+
+.dgrid__dot--ok {
+  background: var(--ok);
+  opacity: 1;
+}
+
+.dgrid__val {
+  font-size: 0.74rem;
+  color: var(--fg-2);
+}
+
+.dgrid td:hover .dgrid__dot {
+  opacity: 1;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.devices__note {
+  margin-top: 14px;
+}
+
+.devices__recs {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.recs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.recs li {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.recs__dev {
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .recs li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 560px) {
+  .dgrid tr {
+    grid-template-columns: minmax(84px, 1.3fr) repeat(var(--n), minmax(30px, 1fr));
+  }
+  .dgrid__name {
+    font-size: 0.75rem;
+  }
+  .dgrid thead th {
+    font-size: 0.75rem;
+  }
+  .dgrid thead th:not(.dgrid__corner) {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    height: 78px;
+    padding: 0 0 6px;
+    justify-self: center;
+  }
+}

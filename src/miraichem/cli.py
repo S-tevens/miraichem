@@ -341,6 +341,44 @@ def replicate(
 
 
 @app.command()
+def serve(
+    host: Annotated[str, typer.Option(help="Address to listen on")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port")] = 8000,
+    results_dir: Annotated[
+        Path, typer.Option(help="Where your runs are saved")
+    ] = DEFAULT_RESULTS_DIR,
+    published_dir: Annotated[Path, typer.Option(help="Published results")] = Path(
+        "results/published"
+    ),
+    configs_dir: Annotated[Path, typer.Option(help="Molecule and sweep configs")] = Path("configs"),
+    static_dir: Annotated[Path, typer.Option(help="Built frontend")] = Path("frontend/dist"),
+    allow_remote: Annotated[
+        bool, typer.Option(help="Allow listening on a non-local address (the app can start jobs)")
+    ] = False,
+) -> None:
+    """Start the MiraiChem app: the web interface plus the API behind it."""
+    import uvicorn
+
+    from miraichem.api import create_app
+
+    if host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
+        console.print(
+            "[red]Refusing to listen on a non-local address: the app can start simulator jobs "
+            "and has no login. Use --allow-remote only on a network you trust.[/red]"
+        )
+        raise typer.Exit(1)
+    if not (static_dir / "index.html").is_file():
+        console.print(
+            f"[yellow]No built frontend at {static_dir}. The API still works; build the UI with "
+            "`npm --prefix frontend run build`, or run it with "
+            "`npm --prefix frontend run dev`.[/yellow]"
+        )
+    api = create_app(results_dir, published_dir, configs_dir, static_dir)
+    console.print(f"MiraiChem app on http://{host}:{port}  (API docs at /api/docs)")
+    uvicorn.run(api, host=host, port=port, log_level="warning")
+
+
+@app.command()
 def report(
     results_dir: Path = DEFAULT_RESULTS_DIR,
     hardware_dir: Path = DEFAULT_HARDWARE_DIR,

@@ -6,5 +6,5 @@ export PATH="$HOME/.local/bin:/usr/bin:/bin"
 uv --version
 cd ~
 uv venv --python 3.11 mc-venv
-uv pip install --python mc-venv/bin/python qiskit qiskit-aer qiskit-ibm-runtime pyscf mitiq scipy numpy pandas pyarrow matplotlib plotly streamlit pydantic pyyaml typer rich python-dotenv pytest pytest-cov ruff mypy pre-commit
+uv pip install --python mc-venv/bin/python qiskit qiskit-aer qiskit-ibm-runtime pyscf mitiq scipy numpy pandas pyarrow matplotlib plotly fastapi uvicorn httpx pydantic pyyaml typer rich python-dotenv pytest pytest-cov ruff mypy pre-commit
 mc-venv/bin/python -c "import pyscf,qiskit;print('pyscf',pyscf.__version__,'qiskit',qiskit.__version__)"

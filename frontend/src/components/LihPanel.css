@@ -1,0 +1,123 @@
+.lih__chart {
+  min-width: 0;
+}
+
+.lih__lede {
+  max-width: 78ch;
+  margin-bottom: 14px;
+}
+
+.lih__chart svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--font);
+}
+
+.lih__band {
+  fill: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+
+.lih__hf {
+  stroke: var(--warn);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.lih__ref {
+  font-size: 12px;
+}
+
+.lih__ref--ok {
+  fill: var(--ok);
+}
+
+.lih__ref--hf {
+  fill: var(--warn);
+}
+
+.lih__label {
+  font-size: 14.5px;
+  fill: var(--fg);
+}
+
+.lih__gates {
+  font-size: 12px;
+  fill: var(--fg-2);
+}
+
+.lih__track {
+  stroke: rgba(176, 214, 211, 0.1);
+}
+
+.lih__link {
+  stroke: rgba(232, 240, 239, 0.35);
+  stroke-width: 2;
+}
+
+.lih__dot {
+  stroke: var(--ink);
+  stroke-width: 2;
+  cursor: default;
+  transition: r 0.12s;
+  outline: none;
+}
+
+.lih__dot--ideal {
+  fill: var(--ink);
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.lih__dot--noisy {
+  fill: #e8f0ef;
+}
+
+.lih__dot:focus-visible {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.lih__tick {
+  stroke: var(--fg-2);
+}
+
+.lih__axis {
+  font-size: 12px;
+  fill: var(--fg-2);
+}
+
+.lih__key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 8px;
+  color: var(--fg-2);
+}
+
+.lih__swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: -1px;
+}
+
+.lih__swatch--ideal {
+  border: 2.5px solid var(--accent);
+}
+
+.lih__swatch--noisy {
+  background: #e8f0ef;
+}
+
+.lih__live {
+  min-height: 1.6em;
+  margin-top: 6px;
+  color: var(--accent);
+}
+
+.lih__note {
+  margin-top: 20px;
+  max-width: 72ch;
+}

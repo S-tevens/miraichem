@@ -13,6 +13,8 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from miraichem.vqe.result import RunResult
 
 ERROR_FLOOR_MHA = 1e-3  # errors below this count as "exact" (log scale needs a floor)
@@ -94,16 +96,15 @@ def pareto_front(points: list[tuple[float, float]]) -> list[int]:
     A point is dominated if another is no worse in both and strictly better in at least one.
     Exact duplicates do not dominate each other, so both stay on the front.
     """
-    front = []
-    for i, (xi, yi) in enumerate(points):
-        dominated = any(
-            xj <= xi and yj <= yi and (xj < xi or yj < yi)
-            for j, (xj, yj) in enumerate(points)
-            if j != i
-        )
-        if not dominated:
-            front.append(i)
-    return front
+    if not points:
+        return []
+    arr = np.asarray(points, dtype=float)
+    x, y = arr[:, 0], arr[:, 1]
+    # j dominates i if it is no worse in both coordinates and strictly better in at least one
+    no_worse = (x[:, None] <= x[None, :]) & (y[:, None] <= y[None, :])  # [j, i]
+    better = (x[:, None] < x[None, :]) | (y[:, None] < y[None, :])
+    dominated = (no_worse & better).any(axis=0)
+    return [int(i) for i in np.flatnonzero(~dominated)]
 
 
 def _minmax(values: list[float]) -> list[float]:

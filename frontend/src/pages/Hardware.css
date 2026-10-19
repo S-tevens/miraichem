@@ -1,0 +1,40 @@
+.hw__sim {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+}
+
+.hw__label {
+  font-size: 14px;
+  fill: var(--fg);
+}
+
+.hw__track {
+  stroke: rgba(176, 214, 211, 0.1);
+}
+
+.hw__err {
+  stroke: var(--c-vqe);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+.hw__dot {
+  fill: var(--c-vqe);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.hw__val {
+  font-size: 13px;
+  fill: var(--fg);
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.sw--sim {
+  border-top: 2px dotted var(--accent);
+}

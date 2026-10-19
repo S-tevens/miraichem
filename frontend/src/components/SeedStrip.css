@@ -1,0 +1,104 @@
+/* ---------- seed strip ---------- */
+
+.strip {
+  position: relative;
+  min-width: 0;
+}
+
+.strip svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--font);
+}
+
+.strip__band {
+  fill: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+
+.strip__hf {
+  stroke: var(--warn);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.strip__ref {
+  font-size: 12px;
+}
+
+.strip__ref--ok {
+  fill: var(--ok);
+}
+
+.strip__ref--hf {
+  fill: var(--warn);
+}
+
+.strip__spread {
+  stroke: rgba(232, 240, 239, 0.45);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.strip__dot {
+  fill: var(--accent);
+  fill-opacity: 0.8;
+  stroke: var(--ink);
+  stroke-width: 2;
+  cursor: default;
+  transition: r 0.12s;
+}
+
+.strip__dot--ok {
+  fill: var(--ok);
+  fill-opacity: 1;
+}
+
+.strip__mean {
+  fill: #fff;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.strip__tick {
+  stroke: var(--fg-2);
+}
+
+.strip__axis {
+  font-size: 12px;
+  fill: var(--fg-2);
+}
+
+.strip__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: center;
+  margin-top: 4px;
+  color: var(--fg-2);
+}
+
+.strip__key {
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 6px;
+}
+
+.strip__key--dot,
+.strip__key--ok {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.strip__key--ok {
+  background: var(--ok);
+}
+
+.strip__key--mean {
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  transform: rotate(45deg) scale(0.85);
+}
+

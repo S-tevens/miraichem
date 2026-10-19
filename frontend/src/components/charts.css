@@ -1,0 +1,119 @@
+/* Shared styling for the SVG charts. Colors come from tokens validated for the dark surface. */
+
+.chart {
+  position: relative;
+  min-width: 0;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--font);
+}
+
+.chart__tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.chart__grid {
+  stroke: rgba(176, 214, 211, 0.09);
+}
+
+.chart__axis {
+  font-size: 12px;
+  fill: var(--fg-2);
+}
+
+.chart__band {
+  fill: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+
+.chart__hf {
+  stroke: var(--c-hf);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.chart__exact {
+  stroke: var(--c-exact);
+  stroke-width: 1.5;
+}
+
+.chart__line {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart__line--raw {
+  stroke: var(--c-vqe);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.chart__line--vqe {
+  stroke: var(--c-vqe);
+  stroke-width: 2.2;
+}
+
+.chart__line--dim {
+  stroke: var(--fg-3);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+}
+
+.chart__cross {
+  stroke: var(--fg-3);
+  stroke-dasharray: 3 3;
+}
+
+.chart__pt {
+  fill: var(--c-vqe);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.chart__key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 8px;
+  color: var(--fg-2);
+}
+
+.sw {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--c-vqe);
+  margin-right: 7px;
+  vertical-align: 3px;
+}
+
+.sw--raw {
+  border-top-width: 1px;
+  opacity: 0.5;
+}
+
+.sw--dim {
+  border-top: 2px dashed var(--fg-3);
+}
+
+.sw--hf {
+  border-top: 2px dashed var(--c-hf);
+}
+
+.sw--exact {
+  border-top-color: var(--c-exact);
+}
+
+.sw--ok {
+  height: 9px;
+  width: 9px;
+  border: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ok) 35%, transparent);
+  vertical-align: -1px;
+}

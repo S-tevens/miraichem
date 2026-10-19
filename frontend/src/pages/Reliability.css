@@ -1,0 +1,124 @@
+/* ---------- list + detail ---------- */
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.item:hover {
+  background: rgba(169, 214, 209, 0.06);
+}
+
+.item.is-active {
+  border-color: rgba(169, 214, 209, 0.4);
+  background: linear-gradient(180deg, rgba(169, 214, 209, 0.14), rgba(169, 214, 209, 0.05));
+}
+
+.item__rank {
+  color: var(--fg-2);
+  font-size: 0.85rem;
+}
+
+.item__main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.item__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.item__val {
+  font-size: 1.1rem;
+  font-weight: 300;
+  text-align: right;
+}
+
+.mini {
+  position: relative;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.mini__spread {
+  position: absolute;
+  top: 2px;
+  height: 2px;
+  background: rgba(169, 214, 209, 0.5);
+}
+
+.mini__dot {
+  position: absolute;
+  top: -1px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.rec2 {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.rec2__name {
+  font-size: 1.35rem;
+  font-weight: 250;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.rec2__text {
+  line-height: 1.6;
+  max-width: 80ch;
+}
+
+.adv {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: rgba(169, 214, 209, 0.03);
+}
+
+.weight {
+  display: grid;
+  gap: 4px;
+}
+
+.weight__row {
+  display: flex;
+  justify-content: space-between;
+}

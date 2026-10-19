@@ -1,0 +1,31 @@
+.weights {
+  display: grid;
+  gap: 16px;
+}
+
+.weight {
+  display: grid;
+  gap: 4px;
+}
+
+.weight__row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.rec-text {
+  line-height: 1.6;
+  max-width: 78ch;
+  color: var(--fg);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.filters .field {
+  min-width: 150px;
+}

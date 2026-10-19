@@ -1,0 +1,44 @@
+.sweeps {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+}
+
+.sweep {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.sweep__head {
+  display: grid;
+  gap: 8px;
+}
+
+.sweep__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sweep__prog {
+  display: grid;
+  gap: 6px;
+}
+
+.sweep__start {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-ctl);
+  background: rgba(169, 214, 209, 0.04);
+}
+
+.sweep__start .check {
+  padding-top: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+}

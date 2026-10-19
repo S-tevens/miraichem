@@ -1,0 +1,71 @@
+.banner {
+  position: relative;
+  min-height: 250px;
+  border-radius: var(--r-sheet);
+  overflow: hidden;
+  background: #08161b;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: flex-end;
+}
+
+.banner__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(5, 14, 18, 0.88) 0%, rgba(5, 14, 18, 0.55) 55%, transparent 100%);
+  pointer-events: none;
+}
+
+.banner__copy {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: clamp(18px, 3vw, 34px);
+  max-width: 640px;
+  pointer-events: none;
+}
+
+.banner__copy .btn {
+  pointer-events: auto;
+}
+
+.banner__title {
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  font-weight: 250;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.banner__sub {
+  color: var(--fg-2);
+  max-width: 52ch;
+}
+
+.banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.rec {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.rec__name {
+  font-size: 1.3rem;
+  font-weight: 250;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+}
+
+.halftone {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
