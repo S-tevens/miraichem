@@ -2,6 +2,8 @@
 
 **Team Mirai · Q-Hack India 2026 · Track: Quantum Biotech & Chemistry**
 
+[![CI](https://github.com/S-tevens/miraichem/actions/workflows/ci.yml/badge.svg)](https://github.com/S-tevens/miraichem/actions/workflows/ci.yml)
+
 MiraiChem is an automated benchmarking and recommendation pipeline that finds the most reliable
 VQE configuration (ansatz, optimizer, qubit mapping, error mitigation, shots) for simulating a small
 molecule on a noisy IBM quantum backend, and checks the recommendation on real IBM hardware.
@@ -171,6 +173,9 @@ cp .env.example .env
 pytest -q
 ```
 
+To verify the whole README on a brand-new clone (install, tests, quick demo, API), run
+`scripts/fresh_clone_check.sh`; it reports what passed and what failed.
+
 ## 6. How to run
 
 All commands run from the repository root.
@@ -236,6 +241,28 @@ miraichem serve
 # development: the API on :8000 plus the interface with hot reload on :5173
 miraichem serve
 npm --prefix frontend run dev
+```
+
+### Offline demo (no Python, no server)
+
+The same interface also builds as a **read-only static demo** of the published results. It is plain files, so
+it opens on any machine with a file server, needs no installation, and cannot break because of a missing
+dependency or a stopped server. Starting runs, sweeps, training and forecasts are disabled in it, and it says so.
+
+Every push builds it in CI: download the `miraichem-offline-demo` artifact from the latest run of
+[CI](https://github.com/S-tevens/miraichem/actions/workflows/ci.yml), unzip it, and serve the folder:
+
+```bash
+python3 -m http.server 8080 --directory miraichem-offline-demo      # then open http://localhost:8080
+```
+
+Or build it yourself (the export step needs the Python install):
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run build:demo      # the interface, into frontend/dist-demo
+miraichem export-demo                     # the data, into frontend/dist-demo/demo
+python3 -m http.server 8080 --directory frontend/dist-demo
 ```
 
 ### Predict a run's error before running it

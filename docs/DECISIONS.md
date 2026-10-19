@@ -245,3 +245,21 @@ and the resulting 80% interval contained the truth 79% of the time. Leave-one-de
 zero runs (the loader swallows unreadable files so one bad file cannot take the app down). `models` is now a known non-run folder,
 with a regression test.
 
+## 2026-10-19: Demo hardening (offline demo, CI, fresh-clone check)
+
+**Offline demo.** A demo that depends on a server, Python and a working install is the first thing to fail in front of judges. The
+interface therefore also builds in a read-only mode (`VITE_DEMO=1`) that answers every request from a static snapshot of the
+published results (`miraichem export-demo`, 2.3 MB). The snapshot is produced by calling the real API in-process, so its shapes
+cannot drift from the live app. The file name for each answer comes from one function, `demo_key`, mirrored in the frontend; both
+sides are tested against the same literal examples, so a change on either side fails a test instead of silently breaking the demo.
+The demo ignores everything that would need computation (scoring weights, seed-reliability thresholds, forecasts, runs, sweeps,
+training) and says so in the interface, instead of showing controls that do nothing.
+
+**CI** runs the Python tests and lint, the frontend typecheck, tests and build, and builds the offline demo as a downloadable
+artifact. It does not deploy anything: publishing the demo is a decision for the team.
+
+**A race condition the demo exposed.** The API warms its cache in a background thread at startup, and the first requests could
+arrive while it was loading. The second caller saw a cache that looked fresh but was still empty, and the derived data (studies,
+devices) then cached that emptiness, so the Overview claimed "no runs" until the files changed. Loading and the derived-data cache are
+now guarded by a lock, with a regression test that starts several first requests at once.
+
