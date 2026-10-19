@@ -3,12 +3,30 @@ import { ApiError, useQuery } from "../api";
 import type { Route } from "../app/router";
 import { useJobs } from "../app/state";
 import { JobCard } from "../components/JobCard";
+import { DEMO } from "../lib/demo";
 import { deviceName, moleculeName } from "../lib/format";
-import { Loading, Notice, PageHead, Panel, Progress } from "../ui/ui";
+import { Empty, Loading, Notice, PageHead, Panel, Progress } from "../ui/ui";
 import type { Job, SweepInfo } from "../types";
 import "./Sweeps.css";
 
 export function SweepsPage({ go }: { go: (r: Route) => void }) {
+  if (DEMO) {
+    return (
+      <div className="page">
+        <PageHead title="Sweeps" />
+        <Panel>
+          <Empty title="Sweeps run in the live app" art="stagger">
+            This offline demo shows saved results only. Start the app with <code>miraichem serve</code> to launch one of the
+            prepared sweeps with live progress.
+          </Empty>
+        </Panel>
+      </div>
+    );
+  }
+  return <SweepsLive go={go} />;
+}
+
+function SweepsLive({ go }: { go: (r: Route) => void }) {
   const { startSweep, jobs, finishedCount } = useJobs();
   const q = useQuery<{ sweeps: SweepInfo[]; busy: boolean }>(`/api/sweeps?n=${finishedCount}`);
   const [open, setOpen] = useState<string | null>(null);

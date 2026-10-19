@@ -3,6 +3,7 @@ import { qs, useQuery } from "../api";
 import { useJobs, useSource } from "../app/state";
 import { LihPanel } from "../components/LihPanel";
 import { SeedStrip } from "../components/SeedStrip";
+import { DEMO } from "../lib/demo";
 import { deviceName, mha, moleculeName, parts, pct, shortName } from "../lib/format";
 import { log } from "../lib/scale";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Seg } from "../ui/ui";
@@ -128,20 +129,20 @@ export function ReliabilityPage() {
               <p className="rec2__text">{rec.justification}</p>
             </div>
             <div className="adv">
-              <h4 className="small muted">How strict to be</h4>
+              <h4 className="small muted">How strict to be{DEMO ? " (fixed in the offline demo)" : ""}</h4>
               <label className="weight">
                 <span className="weight__row"><span>Required reliability</span><span className="num muted">{adv.reliability}% of seeds</span></span>
-                <input className="range" type="range" min={10} max={100} step={5} value={adv.reliability} onChange={(e) => setAdv((a) => ({ ...a, reliability: Number(e.target.value) }))} aria-label="Required reliability" />
+                <input className="range" type="range" min={10} max={100} step={5} value={adv.reliability} onChange={(e) => setAdv((a) => ({ ...a, reliability: Number(e.target.value) }))} aria-label="Required reliability" disabled={DEMO} />
                 <span className="field__hint">share of seeds that must reach {CHEM_ACC_MHA} mHa</span>
               </label>
               <label className="weight">
                 <span className="weight__row"><span>Significance level</span><span className="num muted">{adv.alpha}%</span></span>
-                <input className="range" type="range" min={1} max={20} step={1} value={adv.alpha} onChange={(e) => setAdv((a) => ({ ...a, alpha: Number(e.target.value) }))} aria-label="Significance level" />
+                <input className="range" type="range" min={1} max={20} step={1} value={adv.alpha} onChange={(e) => setAdv((a) => ({ ...a, alpha: Number(e.target.value) }))} aria-label="Significance level" disabled={DEMO} />
                 <span className="field__hint">how sure we must be that a cheaper option is worse before rejecting it</span>
               </label>
               <label className="weight">
                 <span className="weight__row"><span>Practical margin</span><span className="num muted">{adv.margin.toFixed(1)}×</span></span>
-                <input className="range" type="range" min={1} max={3} step={0.1} value={adv.margin} onChange={(e) => setAdv((a) => ({ ...a, margin: Number(e.target.value) }))} aria-label="Practical margin" />
+                <input className="range" type="range" min={1} max={3} step={0.1} value={adv.margin} onChange={(e) => setAdv((a) => ({ ...a, margin: Number(e.target.value) }))} aria-label="Practical margin" disabled={DEMO} />
                 <span className="field__hint">how much worse than the best mean still counts as tied</span>
               </label>
             </div>

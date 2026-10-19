@@ -451,6 +451,28 @@ def predictor_show(
     _print_predictor_report(ErrorPredictor.load(model).report)
 
 
+@app.command("export-demo")
+def export_demo_cmd(
+    out: Annotated[Path, typer.Option(help="Folder the demo build reads its data from")] = Path(
+        "frontend/dist-demo/demo"
+    ),
+    published_dir: Annotated[Path, typer.Option(help="Published results")] = Path(
+        "results/published"
+    ),
+    configs_dir: Annotated[Path, typer.Option(help="Molecule and sweep configs")] = Path("configs"),
+) -> None:
+    """Write the data for the offline (read-only) demo build of the web app."""
+    from miraichem.api.demo import export_demo
+
+    counts = export_demo(out, published_dir, configs_dir)
+    size = sum(f.stat().st_size for f in out.rglob("*.json")) / 1e6
+    console.print(
+        f"Wrote {sum(counts.values())} files ({size:.1f} MB) to {out}: "
+        f"{counts['views']} views, {counts['rank']} rankings, {counts['scan']} scans, "
+        f"{counts['runs']} runs."
+    )
+
+
 @app.command()
 def report(
     results_dir: Path = DEFAULT_RESULTS_DIR,

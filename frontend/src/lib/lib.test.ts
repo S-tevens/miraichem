@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deviceName, mha, parts, pct } from "./format";
+import { demoFile } from "./demo";
 import { linear, linearTicks, log, logTicks } from "./scale";
 import type { Config } from "../types";
 
@@ -62,5 +63,27 @@ describe("format", () => {
     expect(p.optimizer).toBe("SPSA, clipped");
     expect(p.mitigation).toBe("Readout + ZNE");
     expect(p.budget).toContain("1500 evaluations");
+  });
+});
+
+// The same literals are asserted in tests/test_demo.py. If one side changes, both fail.
+describe("demo file names", () => {
+  it("drops everything that does not change an answer", () => {
+    expect(demoFile("/api/overview?source=published&n=3")).toBe("_api_overview.json");
+  });
+  it("keeps the parameters that do, in a stable order", () => {
+    expect(demoFile("/api/rank?molecule=H2&backend=noisy&bond_length=0.735&w_acc=70&source=published")).toBe(
+      "_api_rank_backend=noisy_bond_length=0.735_molecule=H2.json",
+    );
+    expect(demoFile("/api/rank?molecule=H2&backend=ideal&bond_length=1.0")).toBe(
+      "_api_rank_backend=ideal_bond_length=1_molecule=H2.json",
+    );
+    expect(demoFile("/api/rank?molecule=LiH&backend=noisy")).toBe("_api_rank_backend=noisy_molecule=LiH.json");
+    expect(
+      demoFile("/api/replicated/recommendation?molecule=H2&backend=noisy&device=FakeFez&reliability=0.5"),
+    ).toBe("_api_replicated_recommendation_backend=noisy_device=FakeFez_molecule=H2.json");
+  });
+  it("maps a run to its own file", () => {
+    expect(demoFile("/api/runs/abc123?source=published")).toBe("runs/abc123.json");
   });
 });

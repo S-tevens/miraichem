@@ -2,6 +2,7 @@ import { AppProviders, useSource } from "./app/state";
 import { useRoute, type Route } from "./app/router";
 import { Shell } from "./app/Shell";
 import { RunDrawer } from "./components/RunDrawer";
+import { DEMO } from "./lib/demo";
 import { Notice } from "./ui/ui";
 import { AboutPage } from "./pages/About";
 import { CurvesPage } from "./pages/Curves";
@@ -47,14 +48,20 @@ function Frame() {
   const { connected, connectError } = useSource();
   return (
     <Shell route={route} go={go}>
-      {connected === false && (
+      {DEMO && (
+        <div className="demo-banner">
+          Offline demo: published results only, read-only. Starting runs, sweeps, training and forecasts needs the live app
+          (<code>miraichem serve</code>).
+        </div>
+      )}
+      {!DEMO && connected === false && (
         <div className="page">
           <Notice tone="bad">
             {connectError ?? "Cannot reach the MiraiChem server."} Start it with <code>miraichem serve</code> and reload this page.
           </Notice>
         </div>
       )}
-      {connected !== false && <Page route={route} go={go} />}
+      {(DEMO || connected !== false) && <Page route={route} go={go} />}
       <RunDrawer />
     </Shell>
   );

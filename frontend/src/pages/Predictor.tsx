@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApiError, api, qs, useQuery } from "../api";
 import { useJobs } from "../app/state";
+import { DEMO } from "../lib/demo";
 import { duration, pct } from "../lib/format";
 import { log, logTicks } from "../lib/scale";
 import { useWidth } from "../lib/hooks";
@@ -100,7 +101,7 @@ export function PredictorPage() {
   const s = q.data;
   const rep = s.report;
 
-  const trainBox = (
+  const trainBox = DEMO ? null : (
     <Panel title="Training">
       <div className="train">
         <p className="small muted" style={{ maxWidth: "60ch" }}>

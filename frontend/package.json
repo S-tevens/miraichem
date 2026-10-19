@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:demo": "tsc --noEmit && vite build --mode demo --outDir dist-demo"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "^5.1.0",

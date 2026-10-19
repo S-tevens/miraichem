@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DEMO, DEMO_READ_ONLY, demoFile } from "./lib/demo";
 import type { Job, RunRequest } from "./types";
 
 /** Error from the API with the server's own explanation, so the UI can show it as written. */
@@ -12,6 +13,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (DEMO) {
+    if (init?.method && init.method !== "GET") throw new ApiError(403, DEMO_READ_ONLY);
+    if (path.startsWith("/api/jobs")) return { jobs: [] } as T; // nothing can run in the demo
+    const res = await fetch(`${import.meta.env.BASE_URL}demo/${demoFile(path)}`);
+    if (!res.ok) throw new ApiError(404, "This view is not part of the offline demo.");
+    return res.json() as Promise<T>;
+  }
   let res: Response;
   try {
     res = await fetch(path, init);

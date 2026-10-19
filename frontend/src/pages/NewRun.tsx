@@ -3,8 +3,9 @@ import { ApiError, qs, useQuery } from "../api";
 import { useDrawer, useJobs } from "../app/state";
 import { ConvergenceChart } from "../components/ConvergenceChart";
 import { PredictionPanel } from "../components/PredictionPanel";
+import { DEMO } from "../lib/demo";
 import { duration, mha, moleculeName } from "../lib/format";
-import { Field, Loading, Notice, PageHead, Panel, Progress, Select, Seg, Stat } from "../ui/ui";
+import { Empty, Field, Loading, Notice, PageHead, Panel, Progress, Select, Seg, Stat } from "../ui/ui";
 import { CHEM_ACC_MHA, type Job, type Options, type Reference, type RunDetail, type RunRequest } from "../types";
 import "./NewRun.css";
 
@@ -53,6 +54,25 @@ function estimate(f: RunRequest, qubitsJw: number | undefined): string {
 }
 
 export function NewRunPage() {
+  if (DEMO) return <DemoNotice />;
+  return <NewRunLive />;
+}
+
+function DemoNotice() {
+  return (
+    <div className="page">
+      <PageHead title="New run" />
+      <Panel>
+        <Empty title="Runs are started in the live app" art="spiral">
+          This offline demo shows saved results only. Start the app with <code>miraichem serve</code> to configure a run, see a
+          forecast of its error before you run it, and watch it finish.
+        </Empty>
+      </Panel>
+    </div>
+  );
+}
+
+function NewRunLive() {
   const { startRun, job, finishedCount } = useJobs();
   const drawer = useDrawer();
   const opts = useQuery<Options>("/api/options");

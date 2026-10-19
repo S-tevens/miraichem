@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { qs, useQuery } from "../api";
 import { useDrawer, useJobs, useSource } from "../app/state";
 import { ParetoChart, type CostAxis } from "../components/ParetoChart";
+import { DEMO } from "../lib/demo";
 import { deviceName, mha, moleculeName, parts } from "../lib/format";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Seg } from "../ui/ui";
 import { CHEM_ACC_MHA, type Overview, type RankResponse, type RankedRow } from "../types";
@@ -110,7 +111,7 @@ export function LeaderboardPage() {
       {data && (
         <>
           <div className="grid grid--side">
-            <Panel title="Scoring weights" aside="normalised to 100%">
+            <Panel title="Scoring weights" aside={DEMO ? "fixed in the offline demo" : "normalised to 100%"}>
               <div className="weights">
                 {(
                   [
@@ -133,6 +134,7 @@ export function LeaderboardPage() {
                       value={w[k]}
                       onChange={(e) => setW((p) => ({ ...p, [k]: Number(e.target.value) }))}
                       aria-label={`${name} weight`}
+                      disabled={DEMO}
                     />
                     <span className="field__hint">{hint}</span>
                   </label>

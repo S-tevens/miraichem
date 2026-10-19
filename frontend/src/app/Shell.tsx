@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { DEMO } from "../lib/demo";
 import { Icon } from "../ui/ui";
 import { useJobs, useSource } from "./state";
 import { ROUTES, type Route } from "./router";
@@ -104,31 +105,38 @@ export function Shell({
         </nav>
 
         <div className="side__foot">
-          <div className="source">
-            <span className="source__label">Data source</span>
-            <div className="seg" role="group" aria-label="Data source" style={{ width: "100%" }}>
-              {sources.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  aria-pressed={s.id === source}
-                  style={{ flex: 1 }}
-                  title={`${s.path}: ${s.n_runs} runs`}
-                  onClick={() => setSource(s.id)}
-                >
-                  {s.id === "local" ? "My runs" : "Published"}
-                </button>
-              ))}
+          {DEMO ? (
+            <div className="source">
+              <span className="source__label">Offline demo</span>
+              <span className="small muted">Published results, read-only.</span>
             </div>
-            <span className="small faint num">
-              {sources.find((s) => s.id === source)?.n_runs.toLocaleString("en") ?? 0} runs
-            </span>
-          </div>
+          ) : (
+          <div className="source">
+              <span className="source__label">Data source</span>
+              <div className="seg" role="group" aria-label="Data source" style={{ width: "100%" }}>
+                {sources.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-pressed={s.id === source}
+                    style={{ flex: 1 }}
+                    title={`${s.path}: ${s.n_runs} runs`}
+                    onClick={() => setSource(s.id)}
+                  >
+                    {s.id === "local" ? "My runs" : "Published"}
+                  </button>
+                ))}
+              </div>
+              <span className="small faint num">
+                {sources.find((s) => s.id === source)?.n_runs.toLocaleString("en") ?? 0} runs
+              </span>
+            </div>
+          )}
           <div className="status" role="status">
             <span
               className={`status__dot ${connected ? "status__dot--ok" : connected === false ? "status__dot--bad" : ""}`}
             />
-            {connected === null ? "Connecting…" : connected ? "Server connected" : "Server not reachable"}
+            {DEMO ? "Static data, no server" : connected === null ? "Connecting…" : connected ? "Server connected" : "Server not reachable"}
           </div>
         </div>
       </aside>
