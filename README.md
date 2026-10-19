@@ -56,7 +56,9 @@ MiraiChem takes a molecule and does the following:
 6. Scans the recommended configurations over bond lengths (dissociation curves).
 7. **Validates on real IBM hardware** by evaluating the best simulator parameters on a device with
    and without mitigation.
-8. Shows everything in a web app that browses saved results and can launch simulator runs and sweeps.
+8. **Predicts a configuration's error before you run it**, with an interval that has been checked on
+   configurations the model never saw.
+9. Shows everything in a web app that browses saved results and can launch simulator runs and sweeps.
 
 **What is new is the engineering, not the chemistry.** We do not claim a new chemistry method or a
 quantum advantage (H2 and LiH are trivial for classical computers). The contribution is a
@@ -235,6 +237,39 @@ miraichem serve
 miraichem serve
 npm --prefix frontend run dev
 ```
+
+### Predict a run's error before running it
+
+The **Error predictor** page and the forecast on the **New run** page estimate how a noisy configuration will
+do before you spend any compute: from the transpiled circuit size on the chosen device, the optimizer and
+its budget, the mitigation, the shots, the molecule's Hartree-Fock error and a summary of the device's noise.
+It is a random forest trained on the saved noisy runs (1,456 runs from 277 configurations), and it is checked
+only on configurations it has not seen:
+
+| | Typical error factor | R² |
+|---|---|---|
+| Predictor | **1.75×** | 0.82 |
+| Guessing the molecule's average | 4.23× | 0.02 |
+| Guessing the overall average | 4.34× | -0.01 |
+
+- **The uncertainty is calibrated.** The stated 80% interval contained the measured error 79% of the time,
+  calibrated on other folds only.
+- **It transfers to unseen devices, less precisely:** 1.7× to 2.4× when a whole device (Brisbane, Kyiv,
+  Torino, Fez) is left out of training. Holding out Sherbrooke, which supplies 78% of the runs, is not a fair
+  test and is labelled as such.
+- **It relies mostly on** the number of qubits, whether readout correction is on, the mapping and the
+  optimizer.
+- **Limits:** it knows H2 on five simulated devices and LiH on one, forecasts the noisy simulator (not ideal
+  runs or real hardware), and warns when asked about something outside that. It predicts one run with a
+  random seed, so an interval is part of the answer.
+
+```bash
+miraichem predictor train      # learn from results/ and print the validation
+miraichem predictor show       # print how a saved model validated
+```
+
+The trained model is committed under `results/published/models/`, so the app can forecast on a fresh clone;
+train your own from the Error predictor page once you have more runs.
 
 ### Explore our published results (no computation needed)
 

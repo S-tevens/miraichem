@@ -214,3 +214,34 @@ readout 529 -> 35 mHa (paired p < 0.001); LiH noisy `hea` + readout+ZNE 177 -> 3
 - UCCSD is exact on the ideal backend (0.09 mHa) but its 203 two-qubit gates give a consistent 360 mHa error on the noisy simulator.
 - Honest summary: on today's simulated noisy devices, LiH sits between a circuit that is expressive enough but too deep (UCCSD) and
   circuits that are shallow enough but not expressive enough (HEA, 1 to 2 reps).
+
+## 2026-10-19: Error predictor (forecast a noisy run before running it)
+
+**Why.** Benchmarks answer "what worked"; users also need "what will probably work" before spending simulator or hardware
+time. The 1,456 noisy runs already saved are exactly the data to learn that from.
+
+**Model.** A random forest (own NumPy implementation, no scikit-learn dependency) on log10(error in mHa). Features are all known
+before running: transpiled two-qubit gates and depth, qubits, parameters, shots, budget, mitigation flags, optimizer and circuit
+indicators, layers, mapping, the molecule's Hartree-Fock error, and the device's median two-qubit and readout error (medians:
+a few very bad qubit pairs made the means misleading, for example 7% for Sherbrooke).
+
+**What was tried.** Baselines: the global mean and the per-molecule mean. Ridge regression with main effects (typical factor
+about 2.5x), then with pairwise interactions (about 2.1x), then the forest (1.75x, R2 0.82). The forest won on every held-out device,
+so it was kept.
+
+**Validation (all on unseen data).** Five-fold cross-validation grouped by configuration, so no seed of a configuration is in both
+training and test. Interval calibration is done fold by fold: the residual quantiles used for fold k come only from the other folds,
+and the resulting 80% interval contained the truth 79% of the time. Leave-one-device-out gives 1.7x to 2.4x for four devices.
+
+**Honest limits.**
+- Leaving out Sherbrooke gives 6.7x, but Sherbrooke supplies 78% of the data (all of LiH and most H2), so the remaining training set
+  is small and narrow. It is reported with a "not a fair test" flag instead of being averaged in or hidden.
+- Only two molecules and five devices are in the data. Leave-one-molecule-out was tried and is not reported as a result: with one
+  other molecule the problem is nearly degenerate. The predictor warns for anything outside what it saw.
+- It forecasts one run with a random seed; the seed-to-seed spread is part of why the interval is wide.
+- Features come from the transpile for the device, so a forecast needs that circuit built (a few seconds the first time).
+
+**A bug it exposed.** Saving the model under `results/models/` made the results loader try to parse it as a run and silently return
+zero runs (the loader swallows unreadable files so one bad file cannot take the app down). `models` is now a known non-run folder,
+with a regression test.
+

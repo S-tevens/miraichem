@@ -213,6 +213,7 @@ results/
 | Interface | Entry point | Notes |
 |---|---|---|
 | CLI | `miraichem` (`cli.py`, Typer) | `reference`, `run`, `sweep`, `rank`, `curve`, `report`, `hardware`, `hardware-fetch` |
+| Error predictor | `predict/`, `miraichem predictor train` | A random forest that forecasts a noisy run's error from the transpiled circuit, optimizer, mitigation, shots and device noise; validated on unseen configurations and devices; used by the New run page |
 | Web app | `miraichem serve` | A FastAPI layer (`api/`) over the same package plus a React interface (`frontend/`): browse and rank saved results, seed-based recommendations, launch simulator runs and sweeps as background jobs. Real hardware is not reachable from it |
 | Notebook | `notebooks/01_h2_end_to_end_demo.ipynb` | Only calls the package; saved with outputs |
 
