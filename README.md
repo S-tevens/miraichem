@@ -56,7 +56,7 @@ MiraiChem takes a molecule and does the following:
 6. Scans the recommended configurations over bond lengths (dissociation curves).
 7. **Validates on real IBM hardware** by evaluating the best simulator parameters on a device with
    and without mitigation.
-8. Shows everything in a dashboard that reads only saved results.
+8. Shows everything in a web app that browses saved results and can launch simulator runs and sweeps.
 
 **What is new is the engineering, not the chemistry.** We do not claim a new chemistry method or a
 quantum advantage (H2 and LiH are trivial for classical computers). The contribution is a
@@ -94,7 +94,7 @@ flowchart LR
     R --> K
     K --> RK[Ranking<br/>Pareto fronts, recommendation]
     K --> D[Dissociation curves]
-    RK --> UI[Dashboard + RESULTS.md]
+    RK --> UI[Web app + RESULTS.md]
     D --> UI
 ```
 
@@ -110,7 +110,7 @@ flowchart LR
 | `vqe/` | The VQE loop, per-run failure capture and the saved `RunResult` record |
 | `benchmark/` | Sweep engine, metrics, ranking, scan ranking, storage, report generation |
 | `analysis/` | Dissociation curves (matplotlib and plotly) |
-| `cli.py`, `dashboard/` | Command-line interface and Streamlit dashboard |
+| `cli.py`, `api/`, `frontend/` | Command-line interface, the web API (`miraichem serve`) and the web app |
 
 Design decisions and alternatives we rejected are recorded in
 [docs/DECISIONS.md](docs/DECISIONS.md). A generated summary of every result is in
@@ -126,7 +126,8 @@ Python 3.11. Versions are pinned in [requirements.txt](requirements.txt).
 | Chemistry to qubits | `qiskit-nature` 0.8.0, `qiskit-algorithms` 0.4.0, `pyscf` 2.14.0 |
 | Numerics and data | `numpy` 2.2.6, `scipy` 1.17.1, `pandas` 2.3.3, `pyarrow` 25.0.1 |
 | Configuration and CLI | `pydantic` 2.13.5, `pyyaml` 6.0.3, `typer` 0.27.2, `rich` 15.0.0, `python-dotenv` 1.2.4 |
-| Plots and dashboard | `matplotlib` 3.11.2, `plotly` 7.1.0, `streamlit` 1.64.0 |
+| Plots | `matplotlib` 3.11.2, `plotly` 7.1.0 |
+| Web app | `fastapi` 0.146.0, `uvicorn` 0.54.0 (API); React, TypeScript and Vite (interface) |
 | Development | `pytest` 9.1.1, `ruff` 0.16.10, `mypy` 2.4.0 |
 
 ## 5. Setup
@@ -182,8 +183,8 @@ miraichem sweep configs/sweeps/quick_h2.yaml --max-workers 4
 miraichem rank --molecule h2 --backend noisy
 miraichem rank --molecule h2 --backend ideal
 
-# the dashboard (open http://localhost:8501)
-streamlit run dashboard/app.py
+# the web app (open http://localhost:8000; see "The web app" below)
+miraichem serve
 ```
 
 Results are saved to `results/<molecule>/<hash>.json`. Re-running a sweep skips finished runs
@@ -206,6 +207,35 @@ outputs, so you can also read it directly on GitHub.
 jupyter lab notebooks/01_h2_end_to_end_demo.ipynb    # then Run > Run All Cells
 ```
 
+### The web app
+
+[`frontend/`](frontend) is the interface to the whole package (React, TypeScript, Vite), served by a small
+API (`miraichem serve`, FastAPI). It has a sidebar with a switch between the published results and your own
+runs, and these pages:
+
+- **Overview, Leaderboard, Seed reliability, Devices, Dissociation curves, Real hardware:** browse and rank
+  saved results. The leaderboard has live scoring weights and a Pareto chart; Seed reliability shows every
+  configuration over its random seeds with an adjustable, statistics-based recommendation. Any run opens in a
+  panel with its convergence curve, energies, cost, provenance and the command that reproduces it.
+- **New run and Sweeps:** configure a single VQE run, or start one of the prepared sweeps, on the ideal or
+  noisy simulator, with live progress. Results are saved like CLI runs. Invalid combinations (for example
+  L-BFGS-B on a noisy backend) are explained before you run.
+- **Jobs and How it works.**
+
+The app never starts real quantum hardware: that keeps its opt-in flag, cost estimate and confirmation in the
+command line. The server listens on this computer only unless you pass `--allow-remote`.
+
+```bash
+# build the interface once (Node 18 or newer), then start the app and open http://localhost:8000
+npm --prefix frontend install
+npm --prefix frontend run build
+miraichem serve
+
+# development: the API on :8000 plus the interface with hot reload on :5173
+miraichem serve
+npm --prefix frontend run dev
+```
+
 ### Explore our published results (no computation needed)
 
 The full results are committed under [`results/published/`](results/published). They hold every run
@@ -213,8 +243,8 @@ behind the numbers in this README and in [docs/RESULTS.md](docs/RESULTS.md), inc
 the real-hardware runs.
 
 ```bash
-# the dashboard opens on the published results by default (switch to your own runs in the sidebar)
-streamlit run dashboard/app.py
+# the web app: choose "Published" in the sidebar to browse these results
+miraichem serve
 
 # the same leaderboards and recommendations from the command line
 miraichem rank --molecule h2 --backend noisy --results-dir results/published
@@ -462,7 +492,7 @@ beats that.
 
 | Member | GitHub | Area |
 |---|---|---|
-| Stevens | [@S-tevens](https://github.com/S-tevens) | Chemistry and Hamiltonian, ranking, dissociation curves, dashboard |
+| Stevens | [@S-tevens](https://github.com/S-tevens) | Chemistry and Hamiltonian, ranking, dissociation curves, web app |
 | Jeeva | [@jeev-69](https://github.com/jeev-69) | Ansatz, optimizers, LiH verification |
 | Ritesh | [@ritesh9116](https://github.com/ritesh9116) | Noisy backend, mitigation, real-hardware runs |
 | Rohith | [@rohithrajha](https://github.com/rohithrajha) | Sweep engine, CLI, report, documentation |

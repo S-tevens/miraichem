@@ -22,7 +22,7 @@ flowchart LR
     ST --> RK[Ranking<br/>Pareto, recommend]
     ST --> CV[Dissociation curves]
     ST --> RP[Report<br/>docs/RESULTS.md]
-    RK --> UI[CLI and dashboard]
+    RK --> UI[CLI and web app]
     CV --> UI
     HW --> HS[(results/hardware/)]
     HS --> RP
@@ -30,8 +30,8 @@ flowchart LR
 ```
 
 Everything is driven by **configs** and **saved results**. A run is fully described by a `RunConfig`; its
-outcome is one JSON file named by the config's hash. Ranking, curves, the report and the dashboard only read
-those files, which is why the dashboard works offline and a sweep can be stopped and resumed.
+outcome is one JSON file named by the config's hash. Ranking, curves, the report and the web app only read
+those files, which is why the app works offline and a sweep can be stopped and resumed.
 
 ## 2. Layers
 
@@ -47,7 +47,7 @@ flowchart TB
     L4[backends/ and mitigation/]
     L5[vqe/<br/>runner, RunResult]
     L6[benchmark/ and analysis/<br/>sweep, ranking, report, curves]
-    L7[cli.py, dashboard/, notebooks/]
+    L7[cli.py, api/, frontend/, notebooks/]
     L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7
 ```
 
@@ -62,8 +62,8 @@ flowchart TB
 | Mitigation | `mitigation/readout.py`, `zne.py`, `mitigated.py` | Readout correction, gate-folding ZNE, and a wrapper that returns mitigated and raw energies together |
 | VQE | `vqe/runner.py`, `result.py` | `run_vqe` runs one configuration and never raises; `RunResult` is the saved record |
 | Benchmark | `benchmark/sweep.py`, `storage.py`, `metrics.py`, `ranking.py`, `ranking_scan.py`, `report.py` | Sweep engine and cache, result storage, metrics, ranking, scan ranking, report generation |
-| Analysis | `analysis/dissociation.py`, `plots.py` | Bond-length scans and figures (matplotlib for documents, plotly for the dashboard) |
-| Interfaces | `cli.py`, `dashboard/app.py`, `dashboard_helpers.py`, `notebooks/` | Command line, Streamlit dashboard, demo notebook |
+| Analysis | `analysis/dissociation.py`, `plots.py` | Bond-length scans and figures (matplotlib for documents, plotly for interactive figures) |
+| Interfaces | `cli.py`, `api/`, `frontend/`, `notebooks/` | Command line, web API and web app (React), demo notebook |
 
 ## 3. What happens in one run
 
@@ -179,7 +179,7 @@ results/
 │   ├── <molecule>/<hash>_hw.json     one HardwareResult per hardware comparison
 │   └── jobs/<job_id>.json            written at submission time
 ├── summary/summary.{csv,parquet}     flat table of all runs (miraichem report)
-└── published/                        committed copy of the above, read by default in the dashboard
+└── published/                        committed copy of the above, browsable in the web app
 ```
 
 - **`RunConfig.config_hash()`** = first 12 hex characters of SHA-256 over the sorted-key JSON of the config.
@@ -213,7 +213,7 @@ results/
 | Interface | Entry point | Notes |
 |---|---|---|
 | CLI | `miraichem` (`cli.py`, Typer) | `reference`, `run`, `sweep`, `rank`, `curve`, `report`, `hardware`, `hardware-fetch` |
-| Dashboard | `streamlit run dashboard/app.py` | Seven tabs; reads only saved results; published results by default; all data and figure logic lives in `dashboard_helpers.py` so it is unit-tested |
+| Web app | `miraichem serve` | A FastAPI layer (`api/`) over the same package plus a React interface (`frontend/`): browse and rank saved results, seed-based recommendations, launch simulator runs and sweeps as background jobs. Real hardware is not reachable from it |
 | Notebook | `notebooks/01_h2_end_to_end_demo.ipynb` | Only calls the package; saved with outputs |
 
 ## 8. Testing
@@ -227,7 +227,7 @@ About 125 tests run in a few minutes (`pytest -q`); they do not need a network o
 | Noise and mitigation | The noiseless pipeline equals the exact statevector (X, Y and Z bases); readout correction removes a readout-only noise model; ZNE moves a device-noise energy toward the ideal value; folding preserves the circuit's unitary; trimming the noise model changes nothing |
 | Benchmark logic | Sweep caching, `--force`, failure isolation, parallel equals serial; ranking, Pareto and recommendation on synthetic data, including the equilibrium-vs-scan case |
 | Safety | Hardware disabled without the flag; declined confirmation submits nothing; job IDs recorded; options valid |
-| Interfaces | The real dashboard run headlessly against synthetic data; report and export; the notebook is clean (an opt-in test executes it end to end: `pytest -m notebook`) |
+| Interfaces | The web API exercised through FastAPI's test client (including a real run started through it), frontend unit tests (`npm --prefix frontend test`); report and export; the notebook is clean (an opt-in test executes it end to end: `pytest -m notebook`) |
 
 Linting (`ruff`) and types (`mypy`, lenient) run clean on `src/`.
 

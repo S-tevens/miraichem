@@ -79,24 +79,6 @@ def test_report_has_replication_section_with_honest_numbers():
     assert "0.50 mHa" in text  # the lucky single run is shown next to the mean
 
 
-def test_dashboard_helpers_for_replication(tmp_path):
-    from miraichem.benchmark.replication import RUNS_CSV, runs_frame
-    from miraichem.dashboard_helpers import (
-        load_replication,
-        replication_figure,
-        replication_summary,
-    )
-
-    assert load_replication(tmp_path) is None
-    runs = runs_frame(_replicated([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]))
-    (tmp_path / "summary").mkdir()
-    runs.to_csv(tmp_path / "summary" / RUNS_CSV, index=False)
-    loaded = load_replication(tmp_path)
-    table = replication_summary(loaded, "H2", "noisy")
-    assert len(table) == 1 and table.n_seeds[0] == 6
-    assert replication_figure(table).data[0].orientation == "h"
-
-
 def test_sweep_devices_expand_and_have_distinct_hashes():
     sweep = SweepConfig(
         molecule=H2,
