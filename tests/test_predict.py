@@ -3,6 +3,7 @@
 import itertools
 import math
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -15,8 +16,8 @@ from miraichem.predict import ErrorPredictor
 from miraichem.predict.features import FEATURES, RunShape, shape_of, vector
 from miraichem.predict.forest import RandomForest
 from miraichem.vqe.result import RunResult
-from tests.test_api import ROOT
 
+ROOT = Path(__file__).resolve().parents[1]
 H2 = MoleculeConfig(name="H2", geometry="H 0 0 0; H 0 0 {bond_length}")
 
 

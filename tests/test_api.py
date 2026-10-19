@@ -149,3 +149,28 @@ def test_published_results_give_seed_studies_and_recommendations():
         assert s["recommendation"]["label"] in {c["label"] for c in s["configs"]}
     assert api.get("/api/hardware", params={"source": "published"}).json()["results"]
     assert api.get("/api/devices", params={"source": "published"}).json()["blocks"]
+
+
+def test_concurrent_first_requests_never_see_an_empty_cache(tmp_path):
+    """The startup warm-up thread and early requests race; none may observe unloaded results."""
+    import threading
+
+    from miraichem.api.data import Workspace
+
+    local = tmp_path / "results"
+    for r in (make(5.0), make(7.0), make(9.0)):
+        save_result(r, local)
+
+    def first_requests(ws: Workspace) -> list[int]:
+        seen: list[int] = []
+        threads = [
+            threading.Thread(target=lambda: seen.append(len(ws.results("local")))) for _ in range(6)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return seen
+
+    for _ in range(5):
+        assert first_requests(Workspace(local, tmp_path / "none", ROOT / "configs")) == [3] * 6

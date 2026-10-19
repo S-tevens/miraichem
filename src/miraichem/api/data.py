@@ -8,6 +8,7 @@ change, so the API stays fast with a thousand runs.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -153,6 +154,9 @@ class Workspace:
         self._cache: dict[str, _Cache] = {"local": _Cache(), "published": _Cache()}
         # Changes made by this app call invalidate(); runs from the CLI are noticed this often.
         self.recheck_s = 30.0
+        # The warm-up thread and the first requests can arrive together; loading must be atomic or a
+        # second caller would see the cache while it is still empty (and cache derived emptiness).
+        self._lock = threading.RLock()
 
     # ---- sources ----
 
@@ -176,6 +180,10 @@ class Workspace:
         return newest
 
     def _entry(self, source: str) -> _Cache:
+        with self._lock:
+            return self._refresh(source)
+
+    def _refresh(self, source: str) -> _Cache:
         entry = self._cache[source]
         now = time.monotonic()
         if now - entry.checked < self.recheck_s:  # re-scanning thousands of files is slow
@@ -220,10 +228,11 @@ class Workspace:
 
     def _memo(self, source: str, key: str, fn):
         """Compute once per change of the files; reuse the result until they change."""
-        entry = self._entry(source)
-        if key not in entry.derived:
-            entry.derived[key] = fn()
-        return entry.derived[key]
+        with self._lock:
+            entry = self._refresh(source)
+            if key not in entry.derived:
+                entry.derived[key] = fn()
+            return entry.derived[key]
 
     def ok_hashes(self, source: str) -> set[str]:
         return self._memo(
