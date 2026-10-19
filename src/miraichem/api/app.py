@@ -25,6 +25,8 @@ from miraichem.benchmark.ranking_replicated import recommend_replicated
 from miraichem.benchmark.ranking_scan import recommend_across_scan
 from miraichem.benchmark.sweep import load_sweep_config, unique_runs
 from miraichem.config import MoleculeConfig, RunConfig
+from miraichem.predict import ErrorPredictor, nearest_runs
+from miraichem.predict.service import shape_for_config
 
 
 class RunRequest(BaseModel):
@@ -48,6 +50,32 @@ class RunRequest(BaseModel):
 class SweepRequest(BaseModel):
     max_workers: int = Field(4, ge=1, le=16)
     force: bool = False
+
+
+def _run_config(ws: Workspace, req: RunRequest) -> RunConfig:
+    """Build and validate the RunConfig for a request, turning problems into HTTP errors."""
+    try:
+        mol = MoleculeConfig(**yaml.safe_load(ws.molecule_yaml(req.molecule)))
+    except FileNotFoundError as exc:
+        raise HTTPException(404, f"Unknown molecule {req.molecule!r}.") from exc
+    try:
+        return RunConfig(
+            molecule=mol,
+            bond_length=req.bond_length,
+            mapping=req.mapping,
+            ansatz=req.ansatz,
+            ansatz_reps=req.ansatz_reps,
+            optimizer=req.optimizer,
+            maxiter=req.maxiter,
+            backend=req.backend,
+            fake_backend_name=req.fake_backend_name,
+            shots=req.shots,
+            mitigation=req.mitigation,
+            seed=req.seed,
+        )
+    except ValidationError as exc:
+        msg = "; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())
+        raise HTTPException(422, msg) from exc
 
 
 def _source(ws: Workspace, source: str | None) -> str:
@@ -81,6 +109,88 @@ def create_app(
     app = FastAPI(
         title="MiraiChem", version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json"
     )
+
+    # ------------------------------------------------------------------ error predictor
+
+    model_name = Path("models") / "error_predictor.json"
+    loaded: dict = {"path": None, "mtime": 0.0, "model": None}
+
+    def current_model() -> tuple[ErrorPredictor | None, str | None]:
+        """The newest trained predictor: your own if you trained one, else the published one."""
+        for label, root in (("local", Path(results_dir)), ("published", Path(published_dir))):
+            path = root / model_name
+            if path.is_file():
+                mtime = path.stat().st_mtime
+                if loaded["path"] != str(path) or loaded["mtime"] != mtime:
+                    loaded.update(path=str(path), mtime=mtime, model=ErrorPredictor.load(path))
+                return loaded["model"], label
+        return None, None
+
+    @app.get("/api/predictor")
+    def predictor_status():
+        model, origin = current_model()
+        n_now = sum(
+            1 for r in ws.results("local") if r.status == "ok" and r.config.backend == "noisy"
+        )
+        if model is None:
+            return {"available": False, "noisy_runs_available": n_now}
+        return clean(
+            {
+                "available": True,
+                "origin": origin,
+                "report": model.report,
+                "noisy_runs_available": n_now,
+                "newer_data": n_now > model.report["n_runs"],
+            }
+        )
+
+    @app.post("/api/predictor/train", status_code=202)
+    def train_predictor():
+        def work(job) -> None:
+            job.message = "Training the predictor (about a minute)..."
+            model = ErrorPredictor.train(
+                ws.results("local"), progress=lambda m: setattr(job, "message", m + "...")
+            )
+            model.save(Path(results_dir) / model_name)
+            job.message = "Trained and saved."
+
+        return jobs.submit_task("train", "Train the error predictor", work).as_dict()
+
+    @app.post("/api/predict")
+    def predict(req: RunRequest):
+        if req.backend != "noisy":
+            return {
+                "supported": False,
+                "reason": "Predictions are for the noisy simulator: "
+                "an ideal run has no device noise to forecast.",
+            }
+        model, origin = current_model()
+        if model is None:
+            raise HTTPException(
+                404, "No trained predictor. Train one with `miraichem predictor train`."
+            )
+        cfg = _run_config(ws, req)
+        try:
+            shape = shape_for_config(cfg)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(422, f"Could not prepare the circuit: {exc}") from exc
+        pred = model.predict(shape)
+        source = "local" if ws.has_runs("local") else "published"
+        similar = nearest_runs(ws.results(source), shape)
+        return clean(
+            {
+                "supported": True,
+                "origin": origin,
+                "prediction": pred.as_dict(),
+                "circuit": {
+                    "two_qubit_gates": shape.two_qubit_gates,
+                    "depth": shape.depth,
+                    "qubits": shape.qubits,
+                    "parameters": shape.parameters,
+                },
+                "similar": [run_row(r) for r in similar],
+            }
+        )
 
     # ------------------------------------------------------------------ meta
 
@@ -296,28 +406,8 @@ def create_app(
 
     @app.post("/api/runs", status_code=202)
     def start_run(req: RunRequest):
-        try:
-            mol = MoleculeConfig(**yaml.safe_load(ws.molecule_yaml(req.molecule)))
-        except FileNotFoundError as exc:
-            raise HTTPException(404, f"Unknown molecule {req.molecule!r}.") from exc
-        try:
-            cfg = RunConfig(
-                molecule=mol,
-                bond_length=req.bond_length,
-                mapping=req.mapping,
-                ansatz=req.ansatz,
-                ansatz_reps=req.ansatz_reps,
-                optimizer=req.optimizer,
-                maxiter=req.maxiter,
-                backend=req.backend,
-                fake_backend_name=req.fake_backend_name,
-                shots=req.shots,
-                mitigation=req.mitigation,
-                seed=req.seed,
-            )
-        except ValidationError as exc:
-            msg = "; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())
-            raise HTTPException(422, msg) from exc
+        cfg = _run_config(ws, req)
+        mol = cfg.molecule
         title = f"{mol.name} · {cfg.ansatz}/{cfg.optimizer} · {cfg.backend} · {cfg.bond_length} Å"
         return jobs.submit_run(cfg, title, force=req.force).as_dict()
 

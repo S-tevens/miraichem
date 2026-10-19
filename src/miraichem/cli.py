@@ -378,6 +378,79 @@ def serve(
     uvicorn.run(api, host=host, port=port, log_level="warning")
 
 
+predictor_app = typer.Typer(help="Predict a noisy run's error before running it.")
+app.add_typer(predictor_app, name="predictor")
+
+DEFAULT_PREDICTOR = Path("results/models/error_predictor.json")
+
+
+@predictor_app.command("train")
+def predictor_train(
+    results_dir: Annotated[
+        Path, typer.Option(help="Saved runs to learn from")
+    ] = DEFAULT_RESULTS_DIR,
+    out: Annotated[Path, typer.Option(help="Where to save the trained model")] = DEFAULT_PREDICTOR,
+    trees: Annotated[int, typer.Option(help="Trees in the forest")] = 60,
+) -> None:
+    """Train the error predictor from saved noisy runs; reports its accuracy on unseen ones."""
+    from miraichem.predict import ErrorPredictor
+
+    results = load_all_results(results_dir)
+    try:
+        model = ErrorPredictor.train(
+            results, progress=lambda m: console.print(f"[dim]{m}...[/dim]"), n_trees=trees
+        )
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    path = model.save(out)
+    console.print(f"Saved {path} ({path.stat().st_size / 1024:.0f} KB).")
+    _print_predictor_report(model.report)
+
+
+def _print_predictor_report(rep: dict) -> None:
+    cv, b1, b2 = rep["cross_validation"], rep["baseline_mean"], rep["baseline_per_molecule"]
+    t = Table(
+        title=(
+            f"Validated on unseen configurations "
+            f"({rep['n_runs']} runs, {rep['n_configurations']} configs)"
+        )
+    )
+    for col in ("Model", "Typical error factor", "MAE (log10)", "R2"):
+        t.add_column(col, justify="left" if col == "Model" else "right")
+    for name, m in (("Predictor", cv), ("Per-molecule mean", b2), ("Global mean", b1)):
+        t.add_row(name, f"{m['typical_factor']:.2f}x", f"{m['mae_log10']:.3f}", f"{m['r2']:.2f}")
+    console.print(t)
+    iv = rep["interval"]
+    console.print(
+        f"80% interval: really contained the answer {iv['coverage']:.0%} of the time "
+        f"(calibrated on other folds)."
+    )
+    for h in rep["device_holdout"]:
+        note = "" if h["fair"] else " (not a fair test: most of the data came from this device)"
+        console.print(
+            f"  held-out device {h['device']}: typical factor {h['typical_factor']:.2f}x "
+            f"(n={h['n']}){note}"
+        )
+    top = list(rep["importance"].items())[:6]
+    console.print("Most relied on: " + ", ".join(f"{k} (+{v:.3f})" for k, v in top))
+
+
+@predictor_app.command("show")
+def predictor_show(
+    model: Annotated[Path, typer.Option(help="Trained model file")] = DEFAULT_PREDICTOR,
+) -> None:
+    """Print how well a trained predictor did when it was validated."""
+    from miraichem.predict import ErrorPredictor
+
+    if not model.is_file():
+        console.print(
+            f"[red]No model at {model}. Train one with `miraichem predictor train`.[/red]"
+        )
+        raise typer.Exit(1)
+    _print_predictor_report(ErrorPredictor.load(model).report)
+
+
 @app.command()
 def report(
     results_dir: Path = DEFAULT_RESULTS_DIR,

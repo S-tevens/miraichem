@@ -104,6 +104,25 @@ class JobManager:
         self._pool.submit(self._run_sweep, job, sweep, max_workers, force)
         return job
 
+    def submit_task(self, kind: str, title: str, fn) -> Job:
+        """Run ``fn(job)`` in the background (for example, training the predictor)."""
+        job = Job(id=uuid.uuid4().hex[:10], kind=kind, title=title)
+        self._register(job)
+
+        def work() -> None:
+            job.status, job.started = "running", time.time()
+            try:
+                fn(job)
+                job.status, job.completed = "done", 1
+            except Exception as exc:  # noqa: BLE001 - report any failure to the UI
+                job.status, job.error = "failed", f"{type(exc).__name__}: {exc}"
+            finally:
+                job.finished = time.time()
+                self._on_change()
+
+        self._pool.submit(work)
+        return job
+
     # ---- workers ----
 
     def _register(self, job: Job) -> None:
