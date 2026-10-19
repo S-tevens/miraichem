@@ -18,6 +18,7 @@ const GROUPS: { title: string; items: { id: Route; label: string }[] }[] = [
     items: [
       { id: "curves", label: "Dissociation curves" },
       { id: "hardware", label: "Real hardware" },
+      { id: "predictor", label: "Error predictor" },
     ],
   },
   {

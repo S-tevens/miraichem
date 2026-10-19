@@ -39,6 +39,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     }),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
   startSweep: (name: string, max_workers: number, force: boolean) =>
     request<Job>(`/api/sweeps/${encodeURIComponent(name)}/start`, {
       method: "POST",

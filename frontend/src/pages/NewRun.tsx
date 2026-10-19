@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, qs, useQuery } from "../api";
 import { useDrawer, useJobs } from "../app/state";
 import { ConvergenceChart } from "../components/ConvergenceChart";
+import { PredictionPanel } from "../components/PredictionPanel";
 import { duration, mha, moleculeName } from "../lib/format";
 import { Field, Loading, Notice, PageHead, Panel, Progress, Select, Seg, Stat } from "../ui/ui";
 import { CHEM_ACC_MHA, type Job, type Options, type Reference, type RunDetail, type RunRequest } from "../types";
@@ -248,6 +249,13 @@ export function NewRunPage() {
               </div>
             )}
           </Panel>
+
+          {noisy && (
+            <PredictionPanel
+              req={f}
+              actual={current?.status === "done" ? result.data?.row.error_mha : null}
+            />
+          )}
 
           <Panel title="Result" aside={current ? `${current.title}` : undefined}>
             {!current && (

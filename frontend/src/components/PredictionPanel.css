@@ -1,0 +1,24 @@
+.forecast {
+  display: grid;
+  gap: 14px;
+}
+
+.forecast__range {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.forecast__mid {
+  fill: var(--c-vqe);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.forecast__hit {
+  fill: var(--ok);
+}
+
+.forecast__miss {
+  fill: var(--bad);
+}

@@ -7,6 +7,7 @@ export type Route =
   | "devices"
   | "curves"
   | "hardware"
+  | "predictor"
   | "new-run"
   | "sweeps"
   | "jobs"
@@ -19,6 +20,7 @@ export const ROUTES: Route[] = [
   "devices",
   "curves",
   "hardware",
+  "predictor",
   "new-run",
   "sweeps",
   "jobs",

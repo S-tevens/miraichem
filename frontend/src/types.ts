@@ -261,7 +261,7 @@ export interface RunRequest {
 
 export interface Job {
   id: string;
-  kind: "run" | "sweep";
+  kind: "run" | "sweep" | "train";
   title: string;
   status: "queued" | "running" | "done" | "failed";
   created: number;
@@ -298,4 +298,53 @@ export interface Reference {
   hf_error_mha: number;
   exact_method: string;
   n_qubits_jw: number;
+}
+
+export interface PredictionMetrics {
+  mae_log10: number;
+  rmse_log10: number;
+  typical_factor: number;
+  r2: number;
+  n: number;
+}
+
+export interface PredictorReport {
+  trained: string;
+  n_runs: number;
+  n_configurations: number;
+  molecules: string[];
+  devices: string[];
+  cross_validation: PredictionMetrics;
+  baseline_mean: PredictionMetrics;
+  baseline_per_molecule: PredictionMetrics;
+  per_molecule: Record<string, PredictionMetrics>;
+  interval: { level: number; coverage: number; median_width_factor: number };
+  device_holdout: (PredictionMetrics & { device: string; train_rows: number; fair: boolean })[];
+  importance: Record<string, number>;
+  points: { predicted: number; actual: number; molecule: string; device: string }[];
+}
+
+export interface PredictorStatus {
+  available: boolean;
+  origin?: "local" | "published";
+  report?: PredictorReport;
+  noisy_runs_available: number;
+  newer_data?: boolean;
+}
+
+export interface PredictionResult {
+  supported: boolean;
+  reason?: string;
+  origin?: string;
+  prediction?: {
+    error_mha: number;
+    low_mha: number;
+    high_mha: number;
+    p_chemical_accuracy: number;
+    p_beats_hartree_fock: number;
+    hf_error_mha: number;
+    warnings: string[];
+  };
+  circuit?: { two_qubit_gates: number; depth: number; qubits: number; parameters: number };
+  similar?: RunRow[];
 }

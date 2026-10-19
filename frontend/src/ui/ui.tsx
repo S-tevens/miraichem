@@ -258,6 +258,12 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" {...P} />
     </>
   ),
+  predictor: (
+    <>
+      <path d="M3 17l5-6 4 4 8-9" {...P} />
+      <path d="M16 6h4v4" {...P} />
+    </>
+  ),
   "new-run": <path d="M7 4l12 8-12 8V4z" {...P} />,
   sweeps: (
     <>

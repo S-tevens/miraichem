@@ -11,6 +11,7 @@ import { JobsPage } from "./pages/Jobs";
 import { LeaderboardPage } from "./pages/Leaderboard";
 import { NewRunPage } from "./pages/NewRun";
 import { OverviewPage } from "./pages/Overview";
+import { PredictorPage } from "./pages/Predictor";
 import { ReliabilityPage } from "./pages/Reliability";
 import { SweepsPage } from "./pages/Sweeps";
 
@@ -28,6 +29,8 @@ function Page({ route, go }: { route: Route; go: (r: Route) => void }) {
       return <CurvesPage />;
     case "hardware":
       return <HardwarePage />;
+    case "predictor":
+      return <PredictorPage />;
     case "new-run":
       return <NewRunPage />;
     case "sweeps":
