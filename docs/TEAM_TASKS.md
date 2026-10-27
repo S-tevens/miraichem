@@ -29,6 +29,7 @@ In `main`: PySCF references (HF, FCI/CASCI), qubit Hamiltonians (Jordan-Wigner, 
 space (rationale in `docs/DECISIONS.md`), config models and hashing, with tests.
 
 What is left:
+
 - **Ranking** (`benchmark/ranking.py`): weighted score with configurable weights, Pareto fronts over
   (error, total shots) and (error, two-qubit gates), `recommend()` with a justification string built
   from real numbers, and the CLI `rank` command. Tests on synthetic data (`test_ranking.py`).
@@ -48,6 +49,7 @@ In `main`: HEA and UCCSD from the Hartree-Fock state, COBYLA / SPSA / L-BFGS-B b
 `miraichem run`; tests in `test_vqe_ideal.py` and `test_optimizers.py`.
 
 What is left:
+
 - **LiH verification**: run LiH with both mappings and both ansatzes on ideal and noisy; tune
   `maxiter` and report which configurations reach chemical accuracy; `configs/sweeps/full_lih.yaml`.
 - **Optimizer and ansatz comparison**: tune SPSA (matched evaluation budgets), check the HEA
@@ -66,6 +68,7 @@ counts, transpiled depth and two-qubit gate counts, readout mitigation and gate-
 `scripts/ibm_check.py`; tests in `test_vqe_noisy.py` and `test_mitigation.py`.
 
 What is left:
+
 - **Hardware backend** (`backends/hardware.py`): disabled unless `--allow-hardware`; prints the
   number of circuits, shots and expected QPU time; requires interactive `y/N` confirmation; picks
   the least-busy backend unless one is named; saves job IDs so results can be re-fetched; default
@@ -87,6 +90,7 @@ In `main`: `SweepConfig.expand()` (Cartesian product with exclusion rules), `met
 `storage.py`, a first `cli.py` (`run`, `reference`).
 
 What is left:
+
 - **Sweep engine** (`benchmark/sweep.py`): run an expanded sweep, skip results already cached by
   hash unless `--force`, `--max-workers` for parallel simulator runs, progress bar, failed runs do
   not stop the sweep. CLI `sweep` command. Configs `quick_h2.yaml` (under 2 min, used by the demo)
@@ -101,14 +105,14 @@ Done when: `miraichem sweep configs/sweeps/quick_h2.yaml` produces saved results
 
 ## Timeline
 
-| Day | Goal | Owners |
-|-----|------|--------|
-| Fri 2 Oct | Environment, compatibility checks, H2 spike, chemistry and Hamiltonian tests, ideal and noisy VQE, mitigation | in `main` |
-| Sat 3 Oct | Sweep engine and `quick_h2`. Ranking on synthetic data. Hardware backend with dry run. LiH verification. | @rohithrajha: sweep. @S-tevens: ranking. @ritesh9116: hardware. @jeev-69: LiH |
+| Day       | Goal                                                                                                                                                 | Owners                                                                                                |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Fri 2 Oct | Environment, compatibility checks, H2 spike, chemistry and Hamiltonian tests, ideal and noisy VQE, mitigation                                        | in `main`                                                                                             |
+| Sat 3 Oct | Sweep engine and `quick_h2`. Ranking on synthetic data. Hardware backend with dry run. LiH verification.                                             | @rohithrajha: sweep. @S-tevens: ranking. @ritesh9116: hardware. @jeev-69: LiH                         |
 | Sun 4 Oct | `full_h2` and `full_lih` sweeps run. Leaderboard and recommendation from real results. Submit hardware jobs early (queue times). Dissociation curve. | @rohithrajha: sweeps. @S-tevens: recommend, curve. @ritesh9116: hardware jobs. @jeev-69: LiH write-up |
-| Mon 5 Oct | Dashboard complete. Demo notebook. Hardware results collected. Slides drafted. | @S-tevens: dashboard. @rohithrajha: notebook, README. @ritesh9116: hardware results. @jeev-69: slides |
-| Tue 6 Oct | RESULTS.md from real data. Fresh-clone test. Figures. Slides finished, demo video recorded (every member's own voice). | Everyone |
-| Wed 7 Oct | Buffer only: re-record if needed, final push, submit well before 11:59 PM IST. | Everyone |
+| Mon 5 Oct | Dashboard complete. Demo notebook. Hardware results collected. Slides drafted.                                                                       | @S-tevens: dashboard. @rohithrajha: notebook, README. @ritesh9116: hardware results. @jeev-69: slides |
+| Tue 6 Oct | RESULTS.md from real data. Fresh-clone test. Figures. Slides finished, demo video recorded (every member's own voice).                               | Everyone                                                                                              |
+| Wed 7 Oct | Buffer only: re-record if needed, final push, submit well before 11:59 PM IST.                                                                       | Everyone                                                                                              |
 
 Risks: submit hardware jobs by 4 Oct so 5 Oct only collects results. If LiH takes too long, ship H2
 fully and present LiH as an extra. Video narration must be recorded by team members (hackathon rule).
