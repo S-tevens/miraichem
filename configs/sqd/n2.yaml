@@ -1,0 +1,8 @@
+# N2 in STO-3G, all 10 spatial orbitals and 14 electrons: 20 qubits. Exact FCI is cheap here, so
+# every SQD result is checked against it. Equilibrium bond length ~1.098 A.
+# Kept apart from configs/molecules/ so the VQE web app does not offer a 20-qubit VQE run.
+name: N2
+geometry: "N 0 0 0; N 0 0 {bond_length}"
+basis: sto3g
+charge: 0
+spin: 0

@@ -123,6 +123,62 @@ def run(
 
 
 @app.command()
+def sqd(
+    molecule: Annotated[Path, typer.Option(help="Molecule YAML, e.g. configs/sqd/n2.yaml")],
+    bond_length: Annotated[float, typer.Option(help="Bond length in Angstrom")] = 1.0977,
+    n_reps: int = 1,
+    shots: int = 20000,
+    readout_noise: Annotated[
+        float, typer.Option(help="Bit-flip probability per sampled bit")
+    ] = 0.0,
+    iterations: int = 3,
+    samples_per_batch: int = 300,
+    num_batches: int = 3,
+    seed: int = 42,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+) -> None:
+    """Run sample-based quantum diagonalization (simulated sampling) and save the result."""
+    from miraichem.sqd import SqdConfig, run_sqd
+    from miraichem.sqd.storage import save_sqd_result
+
+    cfg = SqdConfig(
+        molecule=_load_molecule(molecule),
+        bond_length=bond_length,
+        n_reps=n_reps,
+        shots=shots,
+        readout_noise=readout_noise,
+        iterations=iterations,
+        samples_per_batch=samples_per_batch,
+        num_batches=num_batches,
+        seed=seed,
+    )
+    result = run_sqd(cfg)
+    path = save_sqd_result(result, results_dir)
+    if result.status == "failed":
+        console.print(f"[red]Run failed:[/red] {result.error_message}\nSaved to {path}")
+        raise typer.Exit(1)
+    table = Table(title=f"{cfg.molecule.name} SQD, {result.num_qubits} qubits")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("SQD energy (Ha)", f"{result.e_sqd:.6f}")
+    table.add_row("Exact FCI energy (Ha)", f"{result.e_exact:.6f}")
+    table.add_row("Hartree-Fock error (mHa)", f"{result.hf_error_mha:.3f}")
+    table.add_row("SQD error (mHa)", f"{result.abs_error_mha:.3f}")
+    table.add_row(
+        "Error per round (mHa)", ", ".join(f"{e:.2f}" for e in result.error_per_iteration_mha)
+    )
+    table.add_row("Chemical accuracy", "yes" if result.within_chemical_accuracy else "no")
+    table.add_row("Distinct samples", str(result.n_distinct_samples))
+    table.add_row("Right electron count", str(result.n_postselected))
+    table.add_row(
+        "Subspace / full CI space", f"{result.subspace_dim:,} / {result.n_determinants:,}"
+    )
+    table.add_row("Wall time (s)", f"{result.wall_time_s:.1f}")
+    console.print(table)
+    console.print(f"Saved to {path}")
+
+
+@app.command()
 def sweep(
     config: Annotated[Path, typer.Argument(help="Sweep YAML, e.g. configs/sweeps/quick_h2.yaml")],
     force: Annotated[bool, typer.Option(help="Rerun even if a result is already saved")] = False,
