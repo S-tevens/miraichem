@@ -112,3 +112,99 @@ def test_dedupe_returns_probabilities_that_sum_to_one():
     bits = np.array([[1, 0], [1, 0], [0, 1]], dtype=bool)
     matrix, probs = dedupe(bits)
     assert len(matrix) == 2 and probs.sum() == pytest.approx(1.0)
+
+
+# ------------------------------------------------------------------ API
+
+
+def _row(seed: int, error: float, **over) -> dict:
+    base = dict(
+        status="ok",
+        molecule="N2",
+        bond_length=1.0977,
+        n_reps=1,
+        shots=20000,
+        readout_noise=0.02,
+        iterations=3,
+        samples_per_batch=300,
+        num_batches=3,
+        seed=seed,
+        qubits=20,
+        error_mha=error,
+        hf_error_mha=157.0,
+        ccsd_error_mha=3.9,
+        subspace_fraction=0.1,
+        wall_time_s=2.0,
+    )
+    return {**base, **over}
+
+
+def test_groups_aggregate_over_seeds_and_keep_settings_apart():
+    from miraichem.api.sqd import sqd_groups
+
+    rows = [_row(0, 1.0), _row(1, 3.0), _row(2, 2.0)] + [
+        _row(0, 16.0, readout_noise=0.0),
+        _row(1, 17.0, readout_noise=0.0),
+        _row(0, 99.0, status="failed", error_mha=None),
+    ]
+    groups = {g["readout_noise"]: g for g in sqd_groups(rows)}
+    assert set(groups) == {0.02, 0.0}  # the failed run opens no group of its own
+    g = groups[0.02]
+    assert g["n_seeds"] == 3 and g["mean_error_mha"] == pytest.approx(2.0)
+    assert g["std_error_mha"] == pytest.approx(1.0) and g["median_error_mha"] == 2.0
+    assert g["share_chem_acc"] == pytest.approx(1 / 3)
+    assert g["best_error_mha"] == 1.0 and g["worst_error_mha"] == 3.0
+    assert groups[0.0]["n_seeds"] == 2
+
+
+@pytest.fixture()
+def api(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from miraichem.api import create_app
+
+    return TestClient(
+        create_app(tmp_path / "local", tmp_path / "published", ROOT / "configs", None)
+    )
+
+
+def test_options_list_the_sqd_molecules(api):
+    mols = api.get("/api/sqd/options").json()["molecules"]
+    assert [m["id"] for m in mols] == ["n2"] and mols[0]["name"] == "N2"
+
+
+def test_sqd_results_are_served_per_source_with_groups(api, n2, n2_problem, tmp_path):
+    assert api.get("/api/sqd", params={"source": "published"}).json()["runs"] == []
+    for seed in (0, 1):
+        cfg = SqdConfig(
+            molecule=n2, bond_length=1.0977, shots=2000, readout_noise=0.02, iterations=1, seed=seed
+        )
+        save_sqd_result(run_sqd(cfg, n2_problem), tmp_path / "published")
+    body = api.get("/api/sqd", params={"source": "published"}).json()
+    assert len(body["runs"]) == 2 and len(body["groups"]) == 1
+    row = body["runs"][0]
+    assert row["qubits"] == 20 and row["ccsd_error_mha"] > 0 and row["sampling_time_s"] > 0
+    assert body["groups"][0]["n_seeds"] == 2
+    assert api.get("/api/sqd", params={"source": "local"}).json()["runs"] == []
+
+
+def test_starting_an_sqd_run_saves_it_to_the_local_results(api, tmp_path):
+    import time
+
+    job = api.post(
+        "/api/sqd/run", json={"molecule": "n2", "shots": 2000, "iterations": 1, "seed": 3}
+    ).json()
+    for _ in range(120):
+        j = api.get(f"/api/jobs/{job['id']}").json()
+        if j["status"] in ("done", "failed"):
+            break
+        time.sleep(0.5)
+    assert j["status"] == "done", j
+    assert j["kind"] == "sqd" and j["best_error_mha"] is not None
+    rows = api.get("/api/sqd", params={"source": "local"}).json()["runs"]
+    assert [r["hash"] for r in rows] == j["result_hashes"]
+
+
+def test_bad_sqd_requests_are_refused_with_a_reason(api):
+    assert api.post("/api/sqd/run", json={"molecule": "nope"}).status_code == 404
+    assert api.post("/api/sqd/run", json={"readout_noise": 0.9}).status_code == 422

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from miraichem.api.data import OPTIONS, Workspace, ranked_row, reference_energies, run_row
 from miraichem.api.jobs import JobManager
+from miraichem.api.sqd import load_rows, sqd_groups, sqd_molecules
 from miraichem.api.views import clean, recommendation_json
 from miraichem.benchmark.ranking import Weights, recommend
 from miraichem.benchmark.ranking_replicated import recommend_replicated
@@ -27,6 +28,8 @@ from miraichem.benchmark.sweep import load_sweep_config, unique_runs
 from miraichem.config import MoleculeConfig, RunConfig
 from miraichem.predict import ErrorPredictor, nearest_runs
 from miraichem.predict.service import shape_for_config
+from miraichem.sqd import SqdConfig, run_sqd
+from miraichem.sqd.storage import save_sqd_result
 
 
 class RunRequest(BaseModel):
@@ -45,6 +48,20 @@ class RunRequest(BaseModel):
     mitigation: Literal["none", "readout", "zne", "readout+zne"] = "none"
     seed: int = 42
     force: bool = False
+
+
+class SqdRequest(BaseModel):
+    """A single SQD run to start (sampling is simulated, so this never uses a quantum device)."""
+
+    molecule: str = "n2"
+    bond_length: float = Field(1.0977, gt=0, le=10)
+    n_reps: int = Field(1, ge=1, le=4)
+    shots: int = Field(20000, ge=100, le=200_000)
+    readout_noise: float = Field(0.02, ge=0, lt=0.5)
+    iterations: int = Field(3, ge=1, le=8)
+    samples_per_batch: int = Field(300, ge=10, le=5000)
+    num_batches: int = Field(3, ge=1, le=10)
+    seed: int = 42
 
 
 class SweepRequest(BaseModel):
@@ -191,6 +208,52 @@ def create_app(
                 "similar": [run_row(r) for r in similar],
             }
         )
+
+    # ------------------------------------------------------------------ SQD
+
+    @app.get("/api/sqd/options")
+    def sqd_options():
+        return {"molecules": sqd_molecules(configs_dir)}
+
+    @app.get("/api/sqd")
+    def sqd_results(source: str | None = None):
+        s = _source(ws, source)
+        rows = load_rows(ws.path(s))
+        return clean({"source": s, "runs": rows, "groups": sqd_groups(rows)})
+
+    @app.post("/api/sqd/run", status_code=202)
+    def start_sqd(req: SqdRequest):
+        path = Path(configs_dir) / "sqd" / f"{Path(req.molecule).stem}.yaml"
+        if not path.is_file():
+            raise HTTPException(404, f"Unknown SQD molecule {req.molecule!r}.")
+        try:
+            cfg = SqdConfig(
+                molecule=MoleculeConfig(**yaml.safe_load(path.read_text())),
+                bond_length=req.bond_length,
+                n_reps=req.n_reps,
+                shots=req.shots,
+                readout_noise=req.readout_noise,
+                iterations=req.iterations,
+                samples_per_batch=req.samples_per_batch,
+                num_batches=req.num_batches,
+                seed=req.seed,
+            )
+        except ValidationError as exc:
+            msg = "; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())
+            raise HTTPException(422, msg) from exc
+
+        def work(job) -> None:
+            job.message = "Solving the classical references and sampling the circuit..."
+            result = run_sqd(cfg)
+            save_sqd_result(result, Path(results_dir))
+            job.result_hashes = [result.config_hash]
+            if result.status == "failed":
+                raise RuntimeError(result.error_message)
+            job.best_error_mha = result.abs_error_mha
+            job.message = "Finished."
+
+        title = f"SQD, {cfg.molecule.name}, noise {cfg.readout_noise:g}, seed {cfg.seed}"
+        return jobs.submit_task("sqd", title, work).as_dict()
 
     # ------------------------------------------------------------------ meta
 

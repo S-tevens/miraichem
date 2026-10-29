@@ -20,6 +20,7 @@ const GROUPS: { title: string; items: { id: Route; label: string }[] }[] = [
       { id: "curves", label: "Dissociation curves" },
       { id: "hardware", label: "Real hardware" },
       { id: "predictor", label: "Error predictor" },
+      { id: "sqd", label: "SQD, larger molecules" },
     ],
   },
   {

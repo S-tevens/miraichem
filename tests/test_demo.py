@@ -34,6 +34,8 @@ KEY_EXAMPLES = [
         {"molecule": "LiH", "backend": "noisy"},
         "_api_rank_backend=noisy_molecule=LiH.json",
     ),
+    ("/api/sqd", {"source": "published", "n": "2"}, "_api_sqd.json"),
+    ("/api/sqd/options", {}, "_api_sqd_options.json"),
     (
         "/api/replicated/recommendation",
         {"molecule": "H2", "backend": "noisy", "device": "FakeFez", "reliability": "0.5"},
@@ -68,6 +70,8 @@ def test_export_writes_every_view_the_app_asks_for(tmp_path):
         "_api_hardware.json",
         "_api_curves.json",
         "_api_predictor.json",
+        "_api_sqd.json",
+        "_api_sqd_options.json",
         "_api_rank_backend=noisy_molecule=H2.json",
     ):
         assert (out / name).is_file(), name

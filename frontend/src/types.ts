@@ -261,7 +261,7 @@ export interface RunRequest {
 
 export interface Job {
   id: string;
-  kind: "run" | "sweep" | "train";
+  kind: "run" | "sweep" | "train" | "sqd";
   title: string;
   status: "queued" | "running" | "done" | "failed";
   created: number;
@@ -347,4 +347,89 @@ export interface PredictionResult {
   };
   circuit?: { two_qubit_gates: number; depth: number; qubits: number; parameters: number };
   similar?: RunRow[];
+}
+
+// ---------------------------------------------------------------- SQD
+
+export interface SqdRow {
+  hash: string;
+  status: "ok" | "failed";
+  error_message: string | null;
+  molecule: string;
+  bond_length: number;
+  n_reps: number;
+  shots: number;
+  readout_noise: number;
+  iterations: number;
+  samples_per_batch: number;
+  num_batches: number;
+  seed: number;
+  qubits: number | null;
+  e_sqd: number | null;
+  e_hf: number | null;
+  e_ccsd: number | null;
+  e_exact: number | null;
+  error_mha: number | null;
+  hf_error_mha: number | null;
+  ccsd_error_mha: number | null;
+  chem_acc: boolean | null;
+  n_determinants: number | null;
+  subspace_dim: number | null;
+  subspace_fraction: number | null;
+  distinct_samples: number | null;
+  postselected: number | null;
+  error_per_iteration_mha: number[];
+  wall_time_s: number | null;
+  sampling_time_s: number | null;
+  diagonalisation_time_s: number | null;
+  fci_time_s: number | null;
+  ccsd_time_s: number | null;
+  timestamp: string | null;
+}
+
+export interface SqdGroup {
+  molecule: string;
+  bond_length: number;
+  n_reps: number;
+  shots: number;
+  readout_noise: number;
+  iterations: number;
+  samples_per_batch: number;
+  num_batches: number;
+  qubits: number | null;
+  n_seeds: number;
+  mean_error_mha: number;
+  std_error_mha: number;
+  best_error_mha: number;
+  worst_error_mha: number;
+  median_error_mha: number;
+  share_chem_acc: number;
+  hf_error_mha: number | null;
+  ccsd_error_mha: number | null;
+  mean_subspace_fraction: number;
+  mean_wall_time_s: number;
+  errors: number[];
+  seeds: number[];
+}
+
+export interface SqdResponse {
+  source: SourceId;
+  runs: SqdRow[];
+  groups: SqdGroup[];
+}
+
+export interface SqdOptions {
+  molecules: { id: string; name: string; basis: string; description: string }[];
+}
+
+export interface SqdRunRequest {
+  molecule: string;
+  bond_length: number;
+  n_reps: number;
+  shots: number;
+  readout_noise: number;
+  iterations: number;
+  samples_per_batch: number;
+  num_batches: number;
+  seed: number;
 }

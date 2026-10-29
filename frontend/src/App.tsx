@@ -14,6 +14,7 @@ import { NewRunPage } from "./pages/NewRun";
 import { OverviewPage } from "./pages/Overview";
 import { PredictorPage } from "./pages/Predictor";
 import { ReliabilityPage } from "./pages/Reliability";
+import { SqdPage } from "./pages/Sqd";
 import { SweepsPage } from "./pages/Sweeps";
 
 function Page({ route, go }: { route: Route; go: (r: Route) => void }) {
@@ -32,6 +33,8 @@ function Page({ route, go }: { route: Route; go: (r: Route) => void }) {
       return <HardwarePage />;
     case "predictor":
       return <PredictorPage />;
+    case "sqd":
+      return <SqdPage />;
     case "new-run":
       return <NewRunPage />;
     case "sweeps":

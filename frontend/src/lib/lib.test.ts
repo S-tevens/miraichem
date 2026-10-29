@@ -83,6 +83,10 @@ describe("demo file names", () => {
       demoFile("/api/replicated/recommendation?molecule=H2&backend=noisy&device=FakeFez&reliability=0.5"),
     ).toBe("_api_replicated_recommendation_backend=noisy_device=FakeFez_molecule=H2.json");
   });
+  it("names the SQD views", () => {
+    expect(demoFile("/api/sqd?source=published&n=2")).toBe("_api_sqd.json");
+    expect(demoFile("/api/sqd/options")).toBe("_api_sqd_options.json");
+  });
   it("maps a run to its own file", () => {
     expect(demoFile("/api/runs/abc123?source=published")).toBe("runs/abc123.json");
   });

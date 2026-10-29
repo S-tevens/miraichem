@@ -1,0 +1,151 @@
+.sqd__flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+
+@media (max-width: 900px) {
+  .sqd__flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .sqd__flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sqd__step {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--panel);
+}
+
+.sqd__step--q {
+  border-color: color-mix(in srgb, var(--c-vqe) 55%, transparent);
+  background: color-mix(in srgb, var(--c-vqe) 9%, var(--panel));
+}
+
+.sqd__tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.sqd__step--q .sqd__tag {
+  color: var(--c-vqe);
+}
+
+.sqd__label {
+  font-size: 0.74rem;
+  fill: var(--fg-2);
+}
+
+.sqd__row {
+  font-size: 14px;
+  fill: var(--fg);
+}
+
+.sqd__track {
+  stroke: rgba(176, 214, 211, 0.1);
+}
+
+.sqd__dot {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.sqd__dot--hf {
+  fill: var(--c-hf);
+}
+
+.sqd__dot--cc {
+  fill: var(--fg-2);
+}
+
+.sqd__dot--full {
+  fill: rgba(176, 214, 211, 0.4);
+}
+
+.sqd__dot--q {
+  fill: var(--c-vqe);
+}
+
+.sqd__val {
+  font-size: 13px;
+  fill: var(--fg);
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.sqd__seed {
+  fill: var(--c-vqe);
+  opacity: 0.75;
+}
+
+.sqd__seed--ok {
+  fill: var(--ok);
+  opacity: 0.95;
+}
+
+.sqd__mean {
+  stroke: var(--fg);
+  stroke-width: 2;
+}
+
+.sqd__bar {
+  fill: var(--c-vqe);
+}
+
+.sqd__bar--full {
+  fill: rgba(176, 214, 211, 0.16);
+}
+
+.sqd__bar--hf {
+  fill: var(--c-hf);
+}
+
+.sqd__bar--cc {
+  fill: var(--fg-2);
+}
+
+.sqd__side {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.sqd__pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.sqd__pick .select {
+  max-width: 100%;
+}
+
+.sqd__where {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  font-size: 0.74rem;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.sqd__where--q {
+  color: var(--c-vqe);
+  border-color: color-mix(in srgb, var(--c-vqe) 50%, transparent);
+}

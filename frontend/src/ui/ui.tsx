@@ -264,6 +264,16 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="M16 6h4v4" {...P} />
     </>
   ),
+  sqd: (
+    <>
+      <circle cx="12" cy="12" r="2" {...P} />
+      <circle cx="5" cy="6" r="1.4" {...P} />
+      <circle cx="19" cy="6" r="1.4" {...P} />
+      <circle cx="5" cy="18" r="1.4" {...P} />
+      <circle cx="19" cy="18" r="1.4" {...P} />
+      <path d="M6.2 7l4.4 3.6M17.8 7l-4.4 3.6M6.2 17l4.4-3.6M17.8 17l-4.4-3.6" {...P} />
+    </>
+  ),
   "new-run": <path d="M7 4l12 8-12 8V4z" {...P} />,
   sweeps: (
     <>
