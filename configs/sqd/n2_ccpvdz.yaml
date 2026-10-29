@@ -1,0 +1,11 @@
+# N2 in the cc-pVDZ Gaussian basis with the two 1s core orbitals frozen: 10 electrons in 26 orbitals,
+# 52 qubits. This is too large to simulate (billions of determinants) and has no exact reference, so
+# it can only be sampled on a real device. Results are compared with Hartree-Fock and CCSD instead.
+# Equilibrium bond length ~1.098 A.
+name: N2_CCPVDZ
+geometry: "N 0 0 0; N 0 0 {bond_length}"
+basis: cc-pvdz
+charge: 0
+spin: 0
+active_electrons: 10
+active_orbitals: 26

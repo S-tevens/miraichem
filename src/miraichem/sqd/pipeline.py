@@ -93,6 +93,7 @@ def _diagonalise(
     best_dim = 0
     kept = 0
     trace: list[float] = []
+    energies: list[float] = []
     for _round in range(cfg.iterations):
         if avg is None:
             avg = _sample_occupancies(matrix, probs, problem.norb)
@@ -112,25 +113,31 @@ def _diagonalise(
         e, sci, occ, _ = min(solved, key=lambda s: s[0])
         avg = (np.asarray(occ[0]), np.asarray(occ[1]))
         total = float(e) + problem.core_energy
-        trace.append(abs(total - problem.e_exact) * 1000)
+        energies.append(total)
+        if problem.e_exact is not None:
+            trace.append(abs(total - problem.e_exact) * 1000)
         if best_e is None or total < best_e:
             best_e = total
             best_dim = len(sci.ci_strs_a) * len(sci.ci_strs_b)
 
     assert best_e is not None
     full = n_determinants(problem.norb, problem.nelec)
-    err = abs(best_e - problem.e_exact) * 1000
     result.e_sqd = best_e
     result.e_hf = problem.e_hf
     result.e_exact = problem.e_exact
-    result.abs_error_mha = err
-    result.hf_error_mha = abs(problem.e_hf - problem.e_exact) * 1000
     result.e_ccsd = problem.e_ccsd
-    result.ccsd_error_mha = abs(problem.e_ccsd - problem.e_exact) * 1000
+    if problem.e_exact is not None:
+        err = abs(best_e - problem.e_exact) * 1000
+        result.abs_error_mha = err
+        result.hf_error_mha = abs(problem.e_hf - problem.e_exact) * 1000
+        result.ccsd_error_mha = abs(problem.e_ccsd - problem.e_exact) * 1000
+        result.within_chemical_accuracy = err <= CHEMICAL_ACCURACY_MHA
+    result.below_hf_mha = (problem.e_hf - best_e) * 1000
+    result.below_ccsd_mha = (problem.e_ccsd - best_e) * 1000
+    result.energy_per_iteration = energies
     result.fci_time_s = problem.fci_time_s
     result.ccsd_time_s = problem.ccsd_time_s
     result.diagonalisation_time_s = time.perf_counter() - t_diag
-    result.within_chemical_accuracy = err <= CHEMICAL_ACCURACY_MHA
     result.num_qubits = problem.num_qubits
     result.n_determinants = full
     result.n_distinct_samples = len(matrix)
