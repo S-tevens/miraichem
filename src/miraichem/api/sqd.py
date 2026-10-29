@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import yaml
 
+from miraichem.chemistry.active_space import resolve_active_space
+from miraichem.chemistry.molecule import build_mole
+from miraichem.config import MoleculeConfig
+from miraichem.sqd.problem import FCI_MAX_DETERMINANTS, n_determinants
 from miraichem.sqd.result import SqdResult
 from miraichem.sqd.storage import load_sqd_results
 
@@ -48,6 +53,10 @@ def sqd_row(r: SqdResult) -> dict[str, Any]:
         "error_mha": r.abs_error_mha,
         "hf_error_mha": r.hf_error_mha,
         "ccsd_error_mha": r.ccsd_error_mha,
+        "below_hf_mha": r.below_hf_mha,
+        "below_ccsd_mha": r.below_ccsd_mha,
+        "energy_per_iteration": r.energy_per_iteration,
+        "hardware": r.hardware,
         "chem_acc": r.within_chemical_accuracy,
         "n_determinants": r.n_determinants,
         "subspace_dim": r.subspace_dim,
@@ -68,7 +77,7 @@ def sqd_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Seed-aggregate the successful rows that share all settings except the seed."""
     buckets: dict[tuple, list[dict[str, Any]]] = {}
     for row in rows:
-        if row["status"] != "ok" or row["error_mha"] is None:
+        if row["status"] != "ok" or row["error_mha"] is None or row.get("hardware"):
             continue
         buckets.setdefault(tuple(row[f] for f in GROUP_FIELDS), []).append(row)
     groups = []
@@ -106,18 +115,39 @@ def load_rows(root: Path) -> list[dict[str, Any]]:
     return rows
 
 
+# Simulating the sampling holds a state vector over every determinant; above this the app only
+# offers the real-hardware route (the library itself can simulate up to MAX_DETERMINANTS).
+UI_SIMULATE_MAX_DETERMINANTS = 2_000_000
+
+
+@lru_cache(maxsize=16)
+def _size(yaml_text: str) -> tuple[int, int, int]:
+    """(orbitals, alpha electrons, determinants) of the active space, without running SCF."""
+    cfg = MoleculeConfig(**yaml.safe_load(yaml_text))
+    mol = build_mole(cfg, 1.0)
+    space = resolve_active_space(cfg, mol)
+    norb = mol.nao if space is None else space.num_orbitals
+    nelec = mol.nelectron if space is None else space.num_electrons
+    return norb, nelec // 2, n_determinants(norb, (nelec // 2, nelec // 2))
+
+
 def sqd_molecules(configs_dir: Path) -> list[dict[str, Any]]:
     out = []
     for p in sorted((Path(configs_dir) / "sqd").glob("*.yaml")):
-        data = yaml.safe_load(p.read_text())
-        text = p.read_text().splitlines()
-        note = " ".join(x.lstrip("#").strip() for x in text if x.startswith("#"))
+        text = p.read_text()
+        data = yaml.safe_load(text)
+        note = " ".join(x.lstrip("#").strip() for x in text.splitlines() if x.startswith("#"))
+        norb, nalpha, dets = _size(text)
         out.append(
             {
                 "id": p.stem,
                 "name": data["name"],
                 "basis": data.get("basis", "sto3g"),
                 "description": note,
+                "qubits": 2 * norb,
+                "determinants": dets,
+                "simulable": dets <= UI_SIMULATE_MAX_DETERMINANTS,
+                "has_exact": dets <= FCI_MAX_DETERMINANTS,
             }
         )
     return out

@@ -40,6 +40,7 @@ class Job:
     error: str | None = None
     result_hashes: list[str] = field(default_factory=list)
     best_error_mha: float | None = None
+    details: dict[str, Any] = field(default_factory=dict)  # for example the IBM job id
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)

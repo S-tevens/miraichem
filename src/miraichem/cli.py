@@ -178,6 +178,125 @@ def sqd(
     console.print(f"Saved to {path}")
 
 
+@app.command("sqd-hardware")
+def sqd_hardware(
+    molecule: Annotated[Path, typer.Option(help="Molecule YAML, e.g. configs/sqd/n2.yaml")],
+    bond_length: Annotated[float, typer.Option(help="Bond length in Angstrom")] = 1.0977,
+    backend_name: Annotated[
+        str | None, typer.Option(help="Device name; default least busy")
+    ] = None,
+    n_reps: int = 1,
+    shots: int = 10000,
+    iterations: int = 3,
+    samples_per_batch: int = 300,
+    num_batches: int = 3,
+    seed: int = 42,
+    max_qpu_seconds: Annotated[
+        float, typer.Option(help="Refuse plans estimated above this")
+    ] = 120.0,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    hardware_dir: Path = DEFAULT_HARDWARE_DIR,
+    allow_hardware: Annotated[bool, typer.Option(help="REQUIRED to submit a real job")] = False,
+) -> None:
+    """Sample the SQD circuit on a real IBM device, then finish the calculation classically.
+
+    Without --allow-hardware this is a dry run: it transpiles the circuit for the device, prints the
+    QPU-time estimate, and submits nothing.
+    """
+    from miraichem.backends.hardware import HardwareAbortedError, HardwareDisabledError
+    from miraichem.sqd import SqdConfig
+    from miraichem.sqd.hardware import CONFIRM_PHRASE, collect, prepare_plan, submit
+    from miraichem.sqd.storage import save_sqd_result
+
+    cfg = SqdConfig(
+        molecule=_load_molecule(molecule),
+        bond_length=bond_length,
+        n_reps=n_reps,
+        shots=shots,
+        iterations=iterations,
+        samples_per_batch=samples_per_batch,
+        num_batches=num_batches,
+        seed=seed,
+    )
+    console.print("Preparing the circuit (no QPU time is used)...")
+    plan = prepare_plan(cfg, backend_name=backend_name, max_qpu_seconds=max_qpu_seconds)
+    p = plan.as_dict()
+    console.print(f"Backend          : {p['backend']}")
+    console.print(f"Qubits           : {p['qubits']} ({p['qubits_used']} used after routing)")
+    console.print(f"Two-qubit gates  : {p['two_qubit_gates']}  (depth {p['depth']})")
+    console.print(f"Shots            : {p['shots']}")
+    console.print(f"Estimated QPU time: ~{p['estimated_qpu_s']:.0f} s (upper-bound estimate)")
+    console.print(f"Classical post-processing: ~{p['estimated_post_s']:.0f} s")
+    if p["remaining_qpu_s"] is not None:
+        console.print(f"QPU time remaining: {p['remaining_qpu_s']:.0f} s of {p['budget_s']:.0f} s")
+    if p["pending_jobs"] is not None:
+        console.print(f"Jobs queued on the device: {p['pending_jobs']} (wait time not included)")
+    for problem in plan.problems:
+        console.print(f"[red]{problem}[/red]")
+    if not allow_hardware:
+        console.print(
+            "\nDry run: nothing was submitted. Add [bold]--allow-hardware[/bold] to submit."
+        )
+        return
+    if plan.problems:
+        raise typer.Exit(1)
+    if not typer.confirm("Submit this job to REAL hardware and use QPU time?", default=False):
+        console.print("Not confirmed; nothing was sent.")
+        raise typer.Exit(1)
+    try:
+        job = submit(plan, CONFIRM_PHRASE, allow_hardware=True, hardware_dir=hardware_dir)
+    except (HardwareAbortedError, HardwareDisabledError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"Submitted job {job.job_id()}. If this session ends, finish it later with "
+        f"`miraichem sqd-hardware-fetch {job.job_id()}`."
+    )
+    result = collect(job, plan, on_status=lambda s: console.print(f"  IBM job: {s.lower()}"))
+    path = save_sqd_result(result, results_dir)
+    _print_sqd_result(result, f"{cfg.molecule.name} SQD on {p['backend']}")
+    console.print(f"Saved to {path}")
+
+
+@app.command("sqd-hardware-fetch")
+def sqd_hardware_fetch(
+    job_id: str,
+    results_dir: Path = DEFAULT_RESULTS_DIR,
+    hardware_dir: Path = DEFAULT_HARDWARE_DIR,
+) -> None:
+    """Finish an earlier hardware SQD job from its saved record (uses no QPU time)."""
+    from miraichem.sqd.hardware import finalize_saved_job
+    from miraichem.sqd.storage import save_sqd_result
+
+    result = finalize_saved_job(
+        job_id,
+        hardware_dir=hardware_dir,
+        on_status=lambda s: console.print(f"  IBM job: {s.lower()}"),
+    )
+    path = save_sqd_result(result, results_dir)
+    _print_sqd_result(result, f"{result.config.molecule.name} SQD on {result.hardware['backend']}")
+    console.print(f"Saved to {path}")
+
+
+def _print_sqd_result(result, title: str) -> None:
+    table = Table(title=title)
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("SQD energy (Ha)", f"{result.e_sqd:.6f}")
+    table.add_row("Hartree-Fock energy (Ha)", f"{result.e_hf:.6f}")
+    table.add_row("CCSD energy (Ha)", f"{result.e_ccsd:.6f}")
+    if result.e_exact is not None:
+        table.add_row("Exact FCI energy (Ha)", f"{result.e_exact:.6f}")
+        table.add_row("SQD error (mHa)", f"{result.abs_error_mha:.3f}")
+    table.add_row("Below Hartree-Fock (mHa)", f"{result.below_hf_mha:.1f}")
+    table.add_row("Below CCSD (mHa)", f"{result.below_ccsd_mha:.1f}")
+    table.add_row("Subspace / full space", f"{result.subspace_dim:,} / {result.n_determinants:,}")
+    hw = result.hardware or {}
+    if hw.get("qpu_seconds") is not None:
+        table.add_row("QPU time used (s)", f"{hw['qpu_seconds']:.1f}")
+    console.print(table)
+
+
 @app.command()
 def sweep(
     config: Annotated[Path, typer.Argument(help="Sweep YAML, e.g. configs/sweeps/quick_h2.yaml")],
@@ -411,6 +530,16 @@ def serve(
     allow_remote: Annotated[
         bool, typer.Option(help="Allow listening on a non-local address (the app can start jobs)")
     ] = False,
+    allow_hardware: Annotated[
+        bool,
+        typer.Option(
+            help="Let the app submit SQD sampling jobs to real IBM hardware. Each one still "
+            "needs a plan and a typed confirmation."
+        ),
+    ] = False,
+    max_qpu_seconds: Annotated[
+        float, typer.Option(help="Refuse hardware plans estimated above this much QPU time")
+    ] = 120.0,
 ) -> None:
     """Start the MiraiChem app: the web interface plus the API behind it."""
     import uvicorn
@@ -429,7 +558,20 @@ def serve(
             "`npm --prefix frontend run build`, or run it with "
             "`npm --prefix frontend run dev`.[/yellow]"
         )
-    api = create_app(results_dir, published_dir, configs_dir, static_dir)
+    api = create_app(
+        results_dir,
+        published_dir,
+        configs_dir,
+        static_dir,
+        allow_hardware=allow_hardware,
+        max_qpu_seconds=max_qpu_seconds,
+    )
+    if allow_hardware:
+        console.print(
+            "[yellow]Real hardware is ENABLED for SQD "
+            f"(limit {max_qpu_seconds:.0f} s of QPU time per run). "
+            "The app can submit jobs after a plan and a typed confirmation.[/yellow]"
+        )
     console.print(f"MiraiChem app on http://{host}:{port}  (API docs at /api/docs)")
     uvicorn.run(api, host=host, port=port, log_level="warning")
 

@@ -7,7 +7,9 @@ its explicit opt-in, cost estimate and confirmation in the command line (``mirai
 
 from __future__ import annotations
 
+import os
 import threading
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -21,6 +23,7 @@ from miraichem.api.data import OPTIONS, Workspace, ranked_row, reference_energie
 from miraichem.api.jobs import JobManager
 from miraichem.api.sqd import load_rows, sqd_groups, sqd_molecules
 from miraichem.api.views import clean, recommendation_json
+from miraichem.backends.hardware import get_service
 from miraichem.benchmark.ranking import Weights, recommend
 from miraichem.benchmark.ranking_replicated import recommend_replicated
 from miraichem.benchmark.ranking_scan import recommend_across_scan
@@ -29,6 +32,17 @@ from miraichem.config import MoleculeConfig, RunConfig
 from miraichem.predict import ErrorPredictor, nearest_runs
 from miraichem.predict.service import shape_for_config
 from miraichem.sqd import SqdConfig, run_sqd
+from miraichem.sqd.hardware import (
+    CONFIRM_PHRASE,
+    DEFAULT_MAX_QPU_S,
+    PLAN_TTL_S,
+    SqdHardwarePlan,
+    collect,
+    prepare_plan,
+)
+from miraichem.sqd.hardware import _default_sampler as default_sampler
+from miraichem.sqd.hardware import submit as submit_to_hardware
+from miraichem.sqd.problem import SqdProblem, build_problem
 from miraichem.sqd.storage import save_sqd_result
 
 
@@ -62,6 +76,25 @@ class SqdRequest(BaseModel):
     samples_per_batch: int = Field(300, ge=10, le=5000)
     num_batches: int = Field(3, ge=1, le=10)
     seed: int = 42
+
+
+class SqdHardwareRequest(BaseModel):
+    """Plan a real-device SQD run. Planning transpiles for the device and uses no QPU time."""
+
+    molecule: str = "n2"
+    bond_length: float = Field(1.0977, gt=0, le=10)
+    backend: str | None = Field(None, description="device name; empty = least busy")
+    n_reps: int = Field(1, ge=1, le=4)
+    shots: int = Field(10000, ge=100, le=100_000)
+    iterations: int = Field(3, ge=1, le=8)
+    samples_per_batch: int = Field(300, ge=10, le=5000)
+    num_batches: int = Field(3, ge=1, le=10)
+    seed: int = 42
+
+
+class SqdHardwareRun(BaseModel):
+    plan_id: str
+    confirm: str
 
 
 class SweepRequest(BaseModel):
@@ -116,6 +149,11 @@ def create_app(
     published_dir: Path = Path("results/published"),
     configs_dir: Path = Path("configs"),
     static_dir: Path | None = None,
+    *,
+    allow_hardware: bool = False,
+    max_qpu_seconds: float = DEFAULT_MAX_QPU_S,
+    hardware_service=None,
+    sampler_factory=None,
 ) -> FastAPI:
     ws = Workspace(results_dir, published_dir, configs_dir)
     jobs = JobManager(Path(results_dir), on_change=lambda: ws.invalidate("local"))
@@ -226,6 +264,13 @@ def create_app(
         path = Path(configs_dir) / "sqd" / f"{Path(req.molecule).stem}.yaml"
         if not path.is_file():
             raise HTTPException(404, f"Unknown SQD molecule {req.molecule!r}.")
+        size = next((m for m in sqd_molecules(configs_dir) if m["id"] == path.stem), None)
+        if size is not None and not size["simulable"]:
+            raise HTTPException(
+                422,
+                f"{size['name']} has {size['qubits']} qubits: too large to simulate here. "
+                "It can only be sampled on a real device.",
+            )
         try:
             cfg = SqdConfig(
                 molecule=MoleculeConfig(**yaml.safe_load(path.read_text())),
@@ -254,6 +299,145 @@ def create_app(
 
         title = f"SQD, {cfg.molecule.name}, noise {cfg.readout_noise:g}, seed {cfg.seed}"
         return jobs.submit_task("sqd", title, work).as_dict()
+
+    # ---- real hardware: plan (no QPU time), then submit behind a typed confirmation
+
+    hardware_dir = Path(results_dir) / "hardware"
+    plans: dict[str, SqdHardwarePlan] = {}
+    submitted: set[str] = set()
+    problem_cache: dict[tuple, SqdProblem] = {}
+    plan_lock = threading.Lock()
+    service_factory = hardware_service or get_service
+    make_sampler = sampler_factory or default_sampler
+
+    def sqd_problem(molecule_cfg: MoleculeConfig, bond_length: float) -> SqdProblem:
+        key = (molecule_cfg.model_dump_json(), round(bond_length, 6))
+        with plan_lock:
+            if key not in problem_cache:
+                if len(problem_cache) >= 3:
+                    problem_cache.pop(next(iter(problem_cache)))
+                problem_cache[key] = build_problem(molecule_cfg, bond_length)
+            return problem_cache[key]
+
+    def require_hardware() -> None:
+        if not allow_hardware:
+            raise HTTPException(
+                403,
+                "Real hardware is switched off. Restart the app with "
+                "`miraichem serve --allow-hardware` to enable it.",
+            )
+
+    @app.get("/api/sqd/hardware")
+    def sqd_hardware_status():
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        return {
+            "enabled": allow_hardware,
+            "token_configured": bool(os.getenv("IBM_QUANTUM_TOKEN")),
+            "max_qpu_seconds": max_qpu_seconds,
+            "confirm_phrase": CONFIRM_PHRASE,
+            "plan_valid_seconds": PLAN_TTL_S,
+        }
+
+    @app.post("/api/sqd/hardware/plan", status_code=202)
+    def plan_sqd_hardware(req: SqdHardwareRequest):
+        require_hardware()
+        path = Path(configs_dir) / "sqd" / f"{Path(req.molecule).stem}.yaml"
+        if not path.is_file():
+            raise HTTPException(404, f"Unknown SQD molecule {req.molecule!r}.")
+        try:
+            mol = MoleculeConfig(**yaml.safe_load(path.read_text()))
+            cfg = SqdConfig(
+                molecule=mol,
+                bond_length=req.bond_length,
+                n_reps=req.n_reps,
+                shots=req.shots,
+                readout_noise=0.0,  # a real device supplies the noise
+                iterations=req.iterations,
+                samples_per_batch=req.samples_per_batch,
+                num_batches=req.num_batches,
+                seed=req.seed,
+            )
+        except ValidationError as exc:
+            msg = "; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())
+            raise HTTPException(422, msg) from exc
+
+        def work(job) -> None:
+            job.message = "Solving the classical references (no QPU time is used)..."
+            problem = sqd_problem(mol, req.bond_length)
+            job.message = "Choosing the device and transpiling the circuit for it..."
+            plan = prepare_plan(
+                cfg,
+                backend_name=(req.backend or "").strip() or None,
+                service=service_factory(),
+                problem=problem,
+                max_qpu_seconds=max_qpu_seconds,
+            )
+            plans[plan.plan_id] = plan
+            job.result_hashes = [plan.plan_id]
+            job.message = "Plan ready. Nothing has been submitted."
+
+        title = f"Plan hardware SQD, {mol.name}, {req.shots} shots"
+        return jobs.submit_task("sqd-plan", title, work).as_dict()
+
+    @app.get("/api/sqd/hardware/plans/{plan_id}")
+    def sqd_hardware_plan(plan_id: str):
+        require_hardware()
+        plan = plans.get(plan_id)
+        if plan is None:
+            raise HTTPException(404, "Unknown plan. Make a new plan.")
+        out = plan.as_dict()
+        out["expired"] = time.time() > out["expires_at"]
+        out["submitted"] = plan_id in submitted
+        return clean(out)
+
+    @app.post("/api/sqd/hardware/run", status_code=202)
+    def run_sqd_hardware(req: SqdHardwareRun):
+        require_hardware()
+        plan = plans.get(req.plan_id)
+        if plan is None:
+            raise HTTPException(404, "Unknown plan. Make a new plan.")
+        if req.confirm.strip() != CONFIRM_PHRASE:
+            raise HTTPException(422, f"Type {CONFIRM_PHRASE!r} exactly to confirm.")
+        if plan.problems:
+            raise HTTPException(422, "This plan cannot be submitted: " + " ".join(plan.problems))
+        if time.time() - plan.created > PLAN_TTL_S:
+            raise HTTPException(410, "This plan has expired. Make a new plan.")
+        with plan_lock:
+            if plan.plan_id in submitted:
+                raise HTTPException(409, "This plan was already submitted.")
+            submitted.add(plan.plan_id)
+
+        def work(job) -> None:
+            job.message = f"Submitting to {plan.backend}..."
+            try:
+                ibm_job = submit_to_hardware(
+                    plan,
+                    req.confirm,
+                    allow_hardware=allow_hardware,
+                    hardware_dir=hardware_dir,
+                    sampler_factory=make_sampler,
+                )
+            except Exception:
+                submitted.discard(plan.plan_id)  # nothing reached the device, so it may be retried
+                raise
+            ibm_id = str(ibm_job.job_id())
+            job.details["ibm_job_id"] = ibm_id
+            job.details["backend"] = plan.backend
+            job.message = f"Submitted as {ibm_id}. Waiting for {plan.backend}..."
+            result = collect(
+                ibm_job,
+                plan,
+                on_status=lambda s: setattr(job, "message", f"IBM job {ibm_id}: {s.lower()}"),
+            )
+            save_sqd_result(result, Path(results_dir))
+            job.result_hashes = [result.config_hash]
+            job.best_error_mha = result.abs_error_mha
+            job.message = "Finished."
+
+        title = f"Hardware SQD, {plan.cfg.molecule.name}, {plan.backend}"
+        return jobs.submit_task("sqd-hardware", title, work).as_dict()
 
     # ------------------------------------------------------------------ meta
 
