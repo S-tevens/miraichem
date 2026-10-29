@@ -20,8 +20,10 @@ class SqdResult(BaseModel):
     e_sqd: float | None = None
     e_hf: float | None = None
     e_exact: float | None = None  # FCI in the active space
+    e_ccsd: float | None = None  # classical CCSD in the same active space
     abs_error_mha: float | None = None
     hf_error_mha: float | None = None
+    ccsd_error_mha: float | None = None
     within_chemical_accuracy: bool | None = None
 
     num_qubits: int | None = None
@@ -32,6 +34,10 @@ class SqdResult(BaseModel):
     subspace_fraction: float | None = None  # subspace_dim relative to the full CI space
     error_per_iteration_mha: list[float] = []
     wall_time_s: float | None = None
+    sampling_time_s: float | None = None  # producing the bitstrings (the quantum-circuit step)
+    diagonalisation_time_s: float | None = None  # recovery, subsampling and classical solves
+    fci_time_s: float | None = None  # the exact classical solve, for comparison
+    ccsd_time_s: float | None = None
 
     library_versions: dict[str, str] = {}
     git_commit: str | None = None

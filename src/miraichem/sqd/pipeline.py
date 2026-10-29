@@ -1,8 +1,9 @@
-"""The SQD loop: sample, post-select, recover configurations, subsample, diagonalise.
+"""The SQD loop: recover configurations, post-select, subsample, diagonalise.
 
-Round 0 uses the raw samples. Later rounds first repair every bitstring with the wrong electron
-count using the orbital occupancies found by the previous round (configuration recovery), which
-is what lets SQD tolerate noisy samples.
+Every round first repairs the bitstrings that have the wrong electron count (configuration
+recovery) and only then post-selects, which is what lets SQD tolerate noisy samples. The first
+round has no diagonalisation result yet, so it uses the orbital occupancies of the raw samples;
+later rounds use the occupancies found by the previous round.
 """
 
 from __future__ import annotations
@@ -52,7 +53,9 @@ def run_sqd(cfg: SqdConfig, problem: SqdProblem | None = None) -> SqdResult:
     try:
         problem = problem or build_problem(cfg.molecule, cfg.bond_length)
         rng = np.random.default_rng(cfg.seed)
+        t_sample = time.perf_counter()
         matrix, probs = sample_lucj(problem, cfg.n_reps, cfg.shots, cfg.readout_noise, rng)
+        result.sampling_time_s = time.perf_counter() - t_sample
         _diagonalise(cfg, problem, matrix, probs, rng, result)
     except Exception as exc:  # noqa: BLE001 - one failed run must not stop a sweep
         log.exception("SQD run %s failed", result.config_hash)
@@ -84,6 +87,7 @@ def _diagonalise(
     result: SqdResult,
 ) -> None:
     na, nb = problem.nelec
+    t_diag = time.perf_counter()
     avg = None
     best_e = None
     best_dim = 0
@@ -91,10 +95,8 @@ def _diagonalise(
     trace: list[float] = []
     for _round in range(cfg.iterations):
         if avg is None:
-            bm, pr = matrix, probs
-        else:
-            bm, pr = recover_configurations(matrix, probs, avg, na, nb, rand_seed=rng)
-            bm, pr = _merge(bm, pr)
+            avg = _sample_occupancies(matrix, probs, problem.norb)
+        bm, pr = recover_configurations(matrix, probs, avg, na, nb, rand_seed=rng)
         bm, pr = postselect_by_hamming_right_and_left(bm, pr, hamming_right=na, hamming_left=nb)
         if len(bm) == 0:
             raise RuntimeError("No sampled bitstring has the right electron count.")
@@ -123,6 +125,11 @@ def _diagonalise(
     result.e_exact = problem.e_exact
     result.abs_error_mha = err
     result.hf_error_mha = abs(problem.e_hf - problem.e_exact) * 1000
+    result.e_ccsd = problem.e_ccsd
+    result.ccsd_error_mha = abs(problem.e_ccsd - problem.e_exact) * 1000
+    result.fci_time_s = problem.fci_time_s
+    result.ccsd_time_s = problem.ccsd_time_s
+    result.diagonalisation_time_s = time.perf_counter() - t_diag
     result.within_chemical_accuracy = err <= CHEMICAL_ACCURACY_MHA
     result.num_qubits = problem.num_qubits
     result.n_determinants = full
@@ -133,9 +140,14 @@ def _diagonalise(
     result.error_per_iteration_mha = trace
 
 
-def _merge(bm: np.ndarray, pr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Recovery can map different samples to the same bitstring; merge their probabilities."""
-    uniq, inverse = np.unique(bm, axis=0, return_inverse=True)
-    merged = np.zeros(len(uniq))
-    np.add.at(merged, np.asarray(inverse).reshape(-1), pr)
-    return uniq, merged / merged.sum()
+def _sample_occupancies(
+    matrix: np.ndarray, probs: np.ndarray, norb: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Probability-weighted orbital occupancy of the raw samples, as (spin-up, spin-down).
+
+    ``recover_configurations`` flips the occupancy pair into column order (left to right), so the
+    column means are flipped back here.
+    """
+    columns = probs @ matrix.astype(float)
+    up, down = np.flip(columns.reshape(2, norb))
+    return up, down

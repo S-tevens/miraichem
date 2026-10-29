@@ -30,9 +30,8 @@ def lucj_state(problem: SqdProblem, n_reps: int) -> np.ndarray:
             f"Exact simulation needs {dim:,} determinants (limit {MAX_DETERMINANTS:,}); "
             "use a smaller active space or hardware sampling."
         )
-    problem.data.run_ccsd(store_t1=True, store_t2=True)
     op = ffsim.UCJOpSpinBalanced.from_t_amplitudes(
-        problem.data.ccsd_t2, t1=problem.data.ccsd_t1, n_reps=n_reps
+        problem.ccsd_t2, t1=problem.ccsd_t1, n_reps=n_reps
     )
     vec = ffsim.hartree_fock_state(problem.norb, problem.nelec)
     return ffsim.apply_unitary(vec, op, norb=problem.norb, nelec=problem.nelec)
