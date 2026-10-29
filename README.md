@@ -344,6 +344,49 @@ miraichem curve --molecule configs/molecules/h2.yaml --config-hash <hash>
 miraichem report            # writes docs/RESULTS.md and results/summary/summary.{csv,parquet}
 ```
 
+### SQD: larger active spaces (simulated sampling, or a real device)
+
+Sample-based quantum diagonalization (SQD) samples bitstrings from a circuit, repairs the ones with
+the wrong electron count (configuration recovery), post-selects, and solves the molecule exactly
+inside the small subspace they span. Only the sampling step is quantum, so it reaches far more qubits
+than VQE. It is in the web app (page "SQD, larger molecules") and on the command line:
+
+```bash
+# 20 qubits (N2, STO-3G), simulated sampling, checked against the exact energy
+miraichem sqd --molecule configs/sqd/n2.yaml --readout-noise 0.02
+
+# the seed study behind the published SQD results
+python scripts/run_sqd_study.py results/published
+```
+
+Three molecules are included in `configs/sqd/`: N2 in STO-3G (20 qubits, simulable), N2 in 6-31G
+(32 qubits) and N2 in cc-pVDZ (52 qubits). The last two are too large to simulate, so they can only
+be sampled on a device, and have no exact reference: results are compared with Hartree-Fock and CCSD.
+
+**SQD on real hardware** uses the same safeguards as the VQE hardware path, in the app and in the
+command line. It is off unless you opt in, a plan comes first (no QPU time), and submitting needs a
+typed confirmation.
+
+```bash
+# dry run: transpiles for the device, prints the QPU-time estimate, submits nothing
+miraichem sqd-hardware --molecule configs/sqd/n2_ccpvdz.yaml --shots 10000
+
+# real submission: requires the flag, shows the estimate, then asks y/N
+miraichem sqd-hardware --molecule configs/sqd/n2_ccpvdz.yaml --shots 10000 --allow-hardware
+
+# finish a job later from its saved record (uses no QPU time)
+miraichem sqd-hardware-fetch <job_id>
+
+# the web app, with the hardware section enabled (still plan first, then type the confirmation)
+miraichem serve --allow-hardware --max-qpu-seconds 120
+```
+
+The estimate (transpiled gates, time per shot, queue depth, QPU time left) is shown before anything is
+sent, plans over `--max-qpu-seconds` or over the remaining budget cannot be submitted, a plan can only
+be submitted once, and the job ID is saved to `results/hardware/jobs/` at submission. The hardware
+path is tested end to end with a simulated device and sampler (no QPU time); it has not yet been run
+on a real device.
+
 ### Real IBM hardware (optional, uses real QPU time)
 
 Hardware is **off by default** and gated. We evaluate the optimal parameters found on the noisy
@@ -522,6 +565,10 @@ beats that.
 
 ## 9. Roadmap
 
+- **SQD on real hardware at 40 to 80 qubits** (N2 in cc-pVDZ is 52 qubits): the plan, estimate and gates are built and tested with a simulated device; the next step is a first real run within the free-plan QPU budget, repeated for error bars.
+- Larger active spaces for SQD: iron-sulfur clusters (for example [2Fe-2S] and [4Fe-4S]), which needs their geometries and active-space integrals and has no classical reference at that size.
+- Open-shell and other spin systems (SQD supports them; our configs and circuits are closed-shell for now).
+- A device-noise model for SQD sampling in place of the simple bit-flip noise, and extending the error predictor to SQD.
 - Larger molecules (BeH2, H2O) with reduced active spaces, and qubit tapering (Z2 symmetry).
 - More mitigation: dynamical decoupling, Pauli twirling, probabilistic error amplification.
 - Extend seed replication to LiH, the dissociation scans and confidence intervals on every ranking.

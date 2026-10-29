@@ -261,7 +261,7 @@ export interface RunRequest {
 
 export interface Job {
   id: string;
-  kind: "run" | "sweep" | "train" | "sqd";
+  kind: "run" | "sweep" | "train" | "sqd" | "sqd-plan" | "sqd-hardware";
   title: string;
   status: "queued" | "running" | "done" | "failed";
   created: number;
@@ -275,6 +275,7 @@ export interface Job {
   error: string | null;
   result_hashes: string[];
   best_error_mha: number | null;
+  details: Record<string, string>;
   elapsed_s: number;
 }
 
@@ -351,6 +352,24 @@ export interface PredictionResult {
 
 // ---------------------------------------------------------------- SQD
 
+export interface SqdHardwareInfo {
+  backend: string;
+  job_id: string;
+  circuit: string;
+  shots?: number;
+  estimated_qpu_s?: number;
+  qpu_seconds: number | null;
+  two_qubit_gates?: number;
+  depth?: number;
+  qubits_used?: number;
+  duration_s?: number;
+  ideal_same_circuit: {
+    error_mha: number | null;
+    below_hf_mha: number | null;
+    distinct_samples: number;
+  } | null;
+}
+
 export interface SqdRow {
   hash: string;
   status: "ok" | "failed";
@@ -372,6 +391,10 @@ export interface SqdRow {
   error_mha: number | null;
   hf_error_mha: number | null;
   ccsd_error_mha: number | null;
+  below_hf_mha: number | null;
+  below_ccsd_mha: number | null;
+  energy_per_iteration: number[];
+  hardware: SqdHardwareInfo | null;
   chem_acc: boolean | null;
   n_determinants: number | null;
   subspace_dim: number | null;
@@ -419,7 +442,16 @@ export interface SqdResponse {
 }
 
 export interface SqdOptions {
-  molecules: { id: string; name: string; basis: string; description: string }[];
+  molecules: {
+    id: string;
+    name: string;
+    basis: string;
+    description: string;
+    qubits: number;
+    determinants: number;
+    simulable: boolean;
+    has_exact: boolean;
+  }[];
 }
 
 export interface SqdRunRequest {
@@ -432,4 +464,37 @@ export interface SqdRunRequest {
   samples_per_batch: number;
   num_batches: number;
   seed: number;
+}
+
+export interface SqdHardwareStatus {
+  enabled: boolean;
+  token_configured: boolean;
+  max_qpu_seconds: number;
+  confirm_phrase: string;
+  plan_valid_seconds: number;
+}
+
+export interface SqdHardwarePlan {
+  plan_id: string;
+  expires_at: number;
+  molecule: string;
+  backend: string;
+  qubits: number;
+  qubits_used: number;
+  two_qubit_gates: number;
+  depth: number;
+  shots: number;
+  per_shot_us: number;
+  estimated_qpu_s: number;
+  estimated_post_s: number;
+  remaining_qpu_s: number | null;
+  budget_s: number;
+  cap_s: number;
+  pending_jobs: number | null;
+  exact_available: boolean | null;
+  n_determinants: number | null;
+  problems: string[];
+  confirm_phrase: string;
+  expired: boolean;
+  submitted: boolean;
 }

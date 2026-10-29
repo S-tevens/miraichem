@@ -5,6 +5,8 @@ import { DEMO } from "../lib/demo";
 import { mha } from "../lib/format";
 import { log, logTicks } from "../lib/scale";
 import { useWidth } from "../lib/hooks";
+import { SqdHardware } from "../components/SqdHardware";
+import { duration } from "../lib/format";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Stat } from "../ui/ui";
 import {
   CHEM_ACC_MHA,
@@ -20,7 +22,12 @@ import "./NewRun.css";
 import "./Sqd.css";
 
 const SUB = "₀₁₂₃₄₅₆₇₈₉";
-const molName = (n: string) => n.replace(/\d/g, (d) => SUB[Number(d)]);
+/** "N2" -> "N₂"; "N2_631G" -> "N₂ (631G)" (the part after the underscore is the basis set). */
+const molName = (n: string) => {
+  const [head, ...rest] = n.split("_");
+  const f = head.replace(/\d/g, (d) => SUB[Number(d)]);
+  return rest.length ? `${f} (${rest.join(" ")})` : f;
+};
 const secs = (s: number | null | undefined) =>
   s === null || s === undefined ? "n/a" : s < 1 ? `${Math.round(s * 1000)} ms` : `${s.toFixed(1)} s`;
 const ha = (e: number | null | undefined) => (e === null || e === undefined ? "n/a" : e.toFixed(6));
@@ -52,7 +59,8 @@ function sameGroup(a: SqdRow, g: SqdGroup): boolean {
  * with), so the page never opens on the best setting or a lucky seed.
  */
 function typicalRun(rows: SqdRow[], groups: SqdGroup[]): SqdRow | undefined {
-  const ok = rows.filter((r) => r.status === "ok" && r.error_mha !== null);
+  const ok = rows.filter((r) => r.status === "ok");
+  const simulated = ok.filter((r) => !r.hardware && r.error_mha !== null);
   const isDefault = (g: SqdGroup) =>
     g.n_reps === DEFAULTS.n_reps &&
     g.shots === DEFAULTS.shots &&
@@ -63,9 +71,9 @@ function typicalRun(rows: SqdRow[], groups: SqdGroup[]): SqdRow | undefined {
   const g =
     [...groups].filter(isDefault).sort((a, b) => b.n_seeds - a.n_seeds)[0] ??
     [...groups].sort((a, b) => b.n_seeds - a.n_seeds || a.mean_error_mha - b.mean_error_mha)[0];
-  if (!g) return ok[0];
-  const members = ok.filter((r) => sameGroup(r, g));
-  return members.sort((a, b) => Math.abs(a.error_mha! - g.median_error_mha) - Math.abs(b.error_mha! - g.median_error_mha))[0] ?? ok[0];
+  if (!g) return simulated[0] ?? ok[0];
+  const members = simulated.filter((r) => sameGroup(r, g));
+  return members.sort((a, b) => Math.abs(a.error_mha! - g.median_error_mha) - Math.abs(b.error_mha! - g.median_error_mha))[0] ?? simulated[0] ?? ok[0];
 }
 
 // ------------------------------------------------------------------ log-scale rows
@@ -156,11 +164,201 @@ function LogRows({
 
 // ------------------------------------------------------------------ the three views of one run
 
+
+/** Without an exact energy there is no error to plot, so show how far below Hartree-Fock each method gets. */
+function GainComparison({ r }: { r: SqdRow }) {
+  const ccsdGain = r.below_hf_mha !== null && r.below_ccsd_mha !== null ? r.below_hf_mha - r.below_ccsd_mha : null;
+  const bars = [
+    { key: "hf", label: "Hartree-Fock", sub: "classical, cheapest", value: 0, tone: "hf" },
+    { key: "cc", label: "CCSD", sub: "classical, standard method", value: ccsdGain ?? 0, tone: "cc" },
+    { key: "sqd", label: "SQD", sub: "circuit samples + classical solve", value: r.below_hf_mha ?? 0, tone: "q" },
+  ];
+  const max = Math.max(1, ...bars.map((b) => Math.abs(b.value)));
+  const sampling = r.sampling_time_s;
+  const diag = r.diagonalisation_time_s;
+  const total = sampling !== null && diag !== null ? sampling + diag : null;
+  return (
+    <Panel title="Classical methods against SQD" aside={`${molName(r.molecule)}, ${r.qubits} qubits, no exact energy at this size`}>
+      <div className="sqd__gain">
+        {bars.map((b) => (
+          <div key={b.key} className="sqd__gainrow">
+            <div>
+              <div className="sqd__row2">{b.label}</div>
+              <div className="small faint">{b.sub}</div>
+            </div>
+            <div className="sqd__gaintrack">
+              <div className={`sqd__gainbar sqd__gainbar--${b.tone}`} style={{ width: `${Math.max(0, (100 * b.value) / max)}%` }} />
+            </div>
+            <div className="num sqd__gainval">{b.value === 0 && b.key === "hf" ? "baseline" : `${mha(b.value)} mHa`}</div>
+          </div>
+        ))}
+      </div>
+      <p className="small faint" style={{ marginTop: 4 }}>Bars: how far the energy is below Hartree-Fock. Longer is better.</p>
+
+      <div className="tablewrap" style={{ marginTop: 14 }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">Method</th>
+              <th scope="col">What runs where</th>
+              <th scope="col" className="right">Energy (Ha)</th>
+              <th scope="col" className="right">Below Hartree-Fock (mHa)</th>
+              <th scope="col" className="right">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Hartree-Fock</td>
+              <td><span className="sqd__where">classical</span></td>
+              <td className="right num">{ha(r.e_hf)}</td>
+              <td className="right num">0</td>
+              <td className="right num">instant</td>
+            </tr>
+            <tr>
+              <td>CCSD</td>
+              <td><span className="sqd__where">classical</span></td>
+              <td className="right num">{ha(r.e_ccsd)}</td>
+              <td className="right num">{mha(ccsdGain)}</td>
+              <td className="right num">{secs(r.ccsd_time_s)}</td>
+            </tr>
+            <tr className="is-best">
+              <td>SQD</td>
+              <td>
+                <span className="sqd__where sqd__where--q">{r.hardware ? "real device" : "circuit sampling"}</span> <span className="sqd__where">classical solve</span>
+              </td>
+              <td className="right num">{ha(r.e_sqd)}</td>
+              <td className="right num">{mha(r.below_hf_mha)}</td>
+              <td className="right num">
+                {secs(total)}
+                {total !== null && <span className="small faint"> ({secs(sampling)} + {secs(diag)})</span>}
+              </td>
+            </tr>
+            <tr>
+              <td>Exact (FCI)</td>
+              <td><span className="sqd__where">classical</span></td>
+              <td className="right num">not computed</td>
+              <td className="right num">n/a</td>
+              <td className="right num">infeasible</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p className="small muted" style={{ marginTop: 12, maxWidth: "74ch" }}>
+        This problem has {int(r.n_determinants)} determinants, too many to solve exactly, so there is no reference to measure an error
+        against. SQD&apos;s energy comes from an exact solve inside a smaller subspace ({int(r.subspace_dim)} determinants), which makes it an
+        upper bound on the true ground-state energy: a lower energy is a better answer. {r.below_ccsd_mha !== null && r.below_ccsd_mha > 0 ? "It is lower than CCSD here." : "It is not lower than CCSD here, so it does not beat the classical method at this size."}
+      </p>
+    </Panel>
+  );
+}
+
+function EnergyRounds({ r }: { r: SqdRow }) {
+  return (
+    <Panel title="Energy after each round" aside="the lowest is kept">
+      <div className="tablewrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">Round</th>
+              <th scope="col" className="right">Energy (Ha)</th>
+              <th scope="col" className="right">Below Hartree-Fock (mHa)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.energy_per_iteration.map((e, i) => (
+              <tr key={i}>
+                <td>Round {i + 1}</td>
+                <td className="right num">{ha(e)}</td>
+                <td className="right num">{r.e_hf !== null ? mha((r.e_hf - e) * 1000) : "n/a"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Rounds do not always improve: each one draws new random batches, so the energy can move up or down a little.
+      </p>
+    </Panel>
+  );
+}
+
+function HardwareInfo({ r }: { r: SqdRow }) {
+  const hw = r.hardware;
+  if (!hw) return null;
+  const ideal = hw.ideal_same_circuit;
+  return (
+    <Panel title="This run used a real quantum computer" aside={hw.backend}>
+      <div className="tablewrap">
+        <table className="table">
+          <tbody>
+            <tr><td>Device</td><td className="right num">{hw.backend}</td></tr>
+            <tr><td>IBM job</td><td className="right num small">{hw.job_id}</td></tr>
+            <tr><td>Shots</td><td className="right num">{int(hw.shots ?? r.shots)}</td></tr>
+            <tr><td>Circuit on the device</td><td className="right num">{int(hw.two_qubit_gates)} two-qubit gates, depth {int(hw.depth)}, {int(hw.qubits_used)} qubits</td></tr>
+            <tr><td>QPU time used</td><td className="right num">{hw.qpu_seconds === null ? "not reported" : secs(hw.qpu_seconds)}{hw.estimated_qpu_s !== undefined && <span className="small faint"> (estimated {secs(hw.estimated_qpu_s)})</span>}</td></tr>
+            {ideal && (
+              <tr>
+                <td>Same circuit on an ideal simulator</td>
+                <td className="right num">
+                  {ideal.error_mha !== null ? `${mha(ideal.error_mha)} mHa error` : `${mha(ideal.below_hf_mha)} mHa below Hartree-Fock`}, {int(ideal.distinct_samples)} distinct bitstrings
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted" style={{ marginTop: 10, maxWidth: "74ch" }}>
+        The bitstrings came from the device; recovery, post-selection and the subspace solve were done on this computer. The circuit
+        uses device-friendly couplings, so it differs from the simulated runs above.
+        {ideal
+          ? ` It gave ${int(r.distinct_samples)} distinct bitstrings on the device against ${int(ideal.distinct_samples)} on an ideal simulator${
+              (r.distinct_samples ?? 0) > ideal.distinct_samples * 1.2 ? ": device noise widens the samples, which helps SQD." : "."
+            }`
+          : ""}
+      </p>
+    </Panel>
+  );
+}
+
+function Stats({ run }: { run: SqdRow }) {
+  const exact = run.error_mha !== null;
+  return (
+    <div className="stats">
+      <Stat label="Qubits" value={run.qubits ?? "n/a"} note={`${molName(run.molecule)} at ${run.bond_length} Å`} />
+      {exact ? (
+        <>
+          <Stat label="SQD error" value={mha(run.error_mha)} unit="mHa" note={run.chem_acc ? "within chemical accuracy" : `chemical accuracy is ${CHEM_ACC_MHA}`} />
+          <Stat label="Hartree-Fock error" value={mha(run.hf_error_mha)} unit="mHa" note="classical starting point" />
+          <Stat label="CCSD error" value={mha(run.ccsd_error_mha)} unit="mHa" note="classical standard" />
+        </>
+      ) : (
+        <>
+          <Stat label="Below Hartree-Fock" value={mha(run.below_hf_mha)} unit="mHa" note="no exact energy at this size" />
+          <Stat label="Below CCSD" value={mha(run.below_ccsd_mha)} unit="mHa" note={(run.below_ccsd_mha ?? 0) > 0 ? "lower than the classical method" : "not lower than the classical method"} />
+        </>
+      )}
+      <Stat label="Subspace solved" value={run.subspace_fraction !== null ? `${(100 * run.subspace_fraction).toFixed(run.subspace_fraction < 0.001 ? 4 : 0)}%` : "n/a"} note={`${int(run.subspace_dim)} of ${int(run.n_determinants)}`} />
+    </div>
+  );
+}
+
+function runLabel(r: SqdRow): string {
+  const where = r.hardware ? `on ${r.hardware.backend}, ${r.shots} shots` : `noise ${r.readout_noise}, ${r.iterations} rounds, seed ${r.seed}`;
+  const score = r.error_mha !== null ? `${mha(r.error_mha)} mHa error` : `${mha(r.below_hf_mha)} mHa below HF`;
+  return `${molName(r.molecule)} ${where}: ${score}`;
+}
+
+function simulateSeconds(f: SqdRunRequest): number {
+  return 2 + f.shots / 10000 + f.iterations * f.num_batches * 0.15; // measured: about 3 to 6 s for N2
+}
+
 function Comparison({ r }: { r: SqdRow }) {
+  if (r.error_mha === null) return <GainComparison r={r} />;
   const rows: LogRow[] = [
     ...(r.hf_error_mha !== null ? [{ key: "hf", label: "Hartree-Fock", sub: "classical, cheapest", value: r.hf_error_mha, tone: "hf" as const }] : []),
     ...(r.ccsd_error_mha !== null ? [{ key: "cc", label: "CCSD", sub: "classical, standard method", value: r.ccsd_error_mha, tone: "cc" as const }] : []),
-    { key: "sqd", label: "SQD", sub: "circuit samples + classical solve", value: r.error_mha ?? 0, tone: "q" },
+    { key: "sqd", label: "SQD", sub: "circuit samples + classical solve", value: r.error_mha, tone: "q" },
   ];
   const sampling = r.sampling_time_s;
   const diag = r.diagonalisation_time_s;
@@ -225,7 +423,7 @@ function Comparison({ r }: { r: SqdRow }) {
         At 20 qubits every method here finishes in seconds: the classical methods are as fast and about as accurate. SQD is
         not shown to be better at this size. What it changes is the scaling: its classical step solves a small subspace
         ({int(r.subspace_dim)} of {int(r.n_determinants)} determinants here) instead of the whole space, so it can reach active
-        spaces too large to solve exactly. The circuit-sampling step is simulated on this computer; on a quantum device it would be the device.
+        spaces too large to solve exactly. {r.hardware ? `The circuit-sampling step ran on ${r.hardware.backend}.` : "The circuit-sampling step is simulated on this computer; on a quantum device it would be the device."}
       </p>
     </Panel>
   );
@@ -237,7 +435,7 @@ function Flow({ r }: { r: SqdRow }) {
       <div className="sqd__step sqd__step--q">
         <span className="sqd__tag">1 · quantum-circuit step</span>
         <strong style={{ fontWeight: 400 }}>Sample the circuit</strong>
-        <span className="small muted">{int(r.shots)} shots of a LUCJ circuit on {r.qubits} qubits (simulated here).</span>
+        <span className="small muted">{int(r.shots)} shots of a LUCJ circuit on {r.qubits} qubits ({r.hardware ? `real device ${r.hardware.backend}` : "simulated here"}).</span>
       </div>
       <div className="sqd__step">
         <span className="sqd__tag">2 · classical</span>
@@ -259,6 +457,7 @@ function Flow({ r }: { r: SqdRow }) {
 }
 
 function Rounds({ r }: { r: SqdRow }) {
+  if (r.error_per_iteration_mha.length === 0) return <EnergyRounds r={r} />;
   const rows: LogRow[] = r.error_per_iteration_mha.map((e, i) => ({
     key: `r${i}`,
     label: `Round ${i + 1}`,
@@ -447,8 +646,11 @@ function RunForm({ onStarted }: { onStarted: (id: string) => void }) {
             label="Molecule"
             value={f.molecule}
             onChange={(v) => set("molecule", v)}
-            options={opts.data.molecules.map((m) => ({ id: m.id, label: `${molName(m.name)} (${m.basis})` }))}
-            hint={mol?.description}
+            options={opts.data.molecules.map((m) => ({
+              id: m.id,
+              label: `${molName(m.name)}, ${m.qubits} qubits${m.simulable ? "" : " (real hardware only)"}`,
+            }))}
+            hint={mol?.simulable === false ? "Too large to simulate here: use the real-hardware section below." : mol?.description}
           />
         )}
         <div className="form__row">
@@ -464,10 +666,12 @@ function RunForm({ onStarted }: { onStarted: (id: string) => void }) {
           <Field label="Random seed">{num("seed")}</Field>
         </div>
         <div className="form__submit">
-          <button type="button" className="btn" disabled={busy || !!running} onClick={submit}>
+          <button type="button" className="btn" disabled={busy || !!running || mol?.simulable === false} onClick={submit}>
             {running ? "Running…" : "Run SQD"}
           </button>
-          <span className="small muted">Usually a few seconds. Sampling is simulated and never uses a quantum device.</span>
+          <span className="small muted">
+            Estimated time: about {duration(simulateSeconds(f))}. Sampling is simulated and never uses a quantum device.
+          </span>
         </div>
         {err && <Notice tone="bad">{err}</Notice>}
         {cur?.status === "failed" && <Notice tone="bad">{cur.error}</Notice>}
@@ -513,11 +717,18 @@ export function SqdPage() {
         sub="Sample-based quantum diagonalization reaches active spaces far beyond the 2 to 6 qubits of VQE: it samples bitstrings from a circuit, repairs them, and solves the molecule exactly inside the small subspace they span."
       />
 
-      <Notice tone="warn">
-        The circuit sampling here is <strong>simulated</strong>, with random bit flips standing in for measurement noise. It is not
-        a real device and not a model of one. These runs show the method working at 20 qubits against an exact reference, not a
-        quantum advantage.
-      </Notice>
+      {run?.hardware ? (
+        <Notice tone="warn">
+          REAL DEVICE result from {run.hardware.backend}. The bitstrings were sampled on a quantum computer; everything after that
+          ran on this computer. A single run is not a benchmark, and this is not a claim of quantum advantage.
+        </Notice>
+      ) : (
+        <Notice tone="warn">
+          The circuit sampling here is <strong>simulated</strong>, with random bit flips standing in for measurement noise. It is not
+          a real device and not a model of one. These runs show the method working at 20 qubits against an exact reference, not a
+          quantum advantage.
+        </Notice>
+      )}
 
       {!run ? (
         <Panel>
@@ -537,26 +748,22 @@ export function SqdPage() {
                 <select id="sqd-run" className="select" value={run.hash} onChange={(e) => setSel(e.target.value)}>
                   {ok.slice(0, 300).map((r) => (
                     <option key={r.hash} value={r.hash}>
-                      {molName(r.molecule)}, noise {r.readout_noise}, {r.iterations} rounds, seed {r.seed}: {mha(r.error_mha)} mHa
+                      {runLabel(r)}
                     </option>
                   ))}
                 </select>
               </span>
             }
           >
-            <div className="stats">
-              <Stat label="Qubits" value={run.qubits ?? "n/a"} note={`${molName(run.molecule)} at ${run.bond_length} Å`} />
-              <Stat label="SQD error" value={mha(run.error_mha)} unit="mHa" note={run.chem_acc ? "within chemical accuracy" : `chemical accuracy is ${CHEM_ACC_MHA}`} />
-              <Stat label="Hartree-Fock error" value={mha(run.hf_error_mha)} unit="mHa" note="classical starting point" />
-              <Stat label="CCSD error" value={mha(run.ccsd_error_mha)} unit="mHa" note="classical standard" />
-              <Stat label="Subspace solved" value={run.subspace_fraction !== null ? `${(100 * run.subspace_fraction).toFixed(0)}%` : "n/a"} note={`${int(run.subspace_dim)} of ${int(run.n_determinants)}`} />
-            </div>
+            <Stats run={run} />
             <div style={{ height: 14 }} />
             <Flow r={run} />
             <p className="small faint">
-              Shown: the median seed of the default setting. The seed study below shows every seed and every setting.
+              {run.hardware ? "Shown: a run on a real device." : "Shown: the median seed of the default setting. The seed study below shows every seed and every setting."}
             </p>
           </Panel>
+
+          <HardwareInfo r={run} />
 
           <Comparison r={run} />
 
@@ -579,6 +786,14 @@ export function SqdPage() {
       )}
 
       {!DEMO && <RunForm onStarted={setWatch} />}
+      {!DEMO && (
+        <SqdHardware
+          onFinished={(hash) => {
+            setSource("local");
+            setSel(hash);
+          }}
+        />
+      )}
     </div>
   );
 }
