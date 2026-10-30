@@ -420,11 +420,16 @@ How to read this honestly:
   samples are so spread out that the subspace covers all 14,400 determinants and SQD becomes exact
   diagonalisation: that size cannot test noise robustness. At 24, 28 and 32 qubits it gives about 5,
   20 to 24, and 42 to 51 mHa, worse than the uniform bit flips at the larger sizes.
-- Everything here is simulated sampling. No real-hardware SQD result exists yet.
+- Everything in this table is simulated sampling. One real-hardware run exists: N2 (20 qubits) on `ibm_fez`,
+  IBM job `dbibe2o1h92s73834cvg`, 5.0 s of QPU time, error 0.057 mHa against the exact energy. The device
+  noise spread the samples so widely that the subspace covered 9,801 of 14,400 configurations (68%), so
+  this is close to exact diagonalisation. It shows the hardware path works end to end; it is one run and
+  is not evidence of noise robustness, of scaling, or of an advantage over classical methods.
 
 **SQD on real hardware** uses the same safeguards as the VQE hardware path, in the app and in the
-command line. It is off unless you opt in, a plan comes first (no QPU time), and submitting needs a
-typed confirmation.
+command line. A plan comes first (no QPU time, it shows the estimate), and nothing is sent until you
+answer an "are you sure" step (a typed confirmation in the command line, a second button in the app).
+The app offers it when it runs on your own machine; start it with `--no-allow-hardware` to switch it off.
 
 ```bash
 # dry run: transpiles for the device, prints the QPU-time estimate, submits nothing
@@ -436,8 +441,9 @@ miraichem sqd-hardware --molecule configs/sqd/n2_ccpvdz.yaml --shots 10000 --all
 # finish a job later from its saved record (uses no QPU time)
 miraichem sqd-hardware-fetch <job_id>
 
-# the web app, with the hardware section enabled (still plan first, then type the confirmation)
-miraichem serve --allow-hardware --max-qpu-seconds 120
+# the web app: hardware is available by default on a local server, with a per-run cap
+miraichem serve --max-qpu-seconds 120
+miraichem serve --no-allow-hardware   # for a demo: the app cannot reach IBM at all
 ```
 
 The estimate (transpiled gates, time per shot, queue depth, QPU time left) is shown before anything is

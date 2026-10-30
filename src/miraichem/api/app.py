@@ -342,7 +342,7 @@ def create_app(
         if not allow_hardware:
             raise HTTPException(
                 403,
-                "Real hardware is switched off. Restart the app with "
+                "Real hardware is switched off on this server. Restart the app with "
                 "`miraichem serve --allow-hardware` to enable it.",
             )
 

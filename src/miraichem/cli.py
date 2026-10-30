@@ -565,12 +565,13 @@ def serve(
         bool, typer.Option(help="Allow listening on a non-local address (the app can start jobs)")
     ] = False,
     allow_hardware: Annotated[
-        bool,
+        bool | None,
         typer.Option(
-            help="Let the app submit SQD sampling jobs to real IBM hardware. Each one still "
-            "needs a plan and a typed confirmation."
+            help="Let the app submit SQD sampling jobs to real IBM hardware. Default: on for a "
+            "local server, off with --allow-remote. Each job still needs a plan and a second "
+            "'are you sure' confirmation."
         ),
-    ] = False,
+    ] = None,
     max_qpu_seconds: Annotated[
         float, typer.Option(help="Refuse hardware plans estimated above this much QPU time")
     ] = 120.0,
@@ -580,7 +581,10 @@ def serve(
 
     from miraichem.api import create_app
 
-    if host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
+    local = host in ("127.0.0.1", "localhost", "::1")
+    if allow_hardware is None:
+        allow_hardware = local
+    if not local and not allow_remote:
         console.print(
             "[red]Refusing to listen on a non-local address: the app can start simulator jobs "
             "and has no login. Use --allow-remote only on a network you trust.[/red]"
@@ -602,9 +606,10 @@ def serve(
     )
     if allow_hardware:
         console.print(
-            "[yellow]Real hardware is ENABLED for SQD "
+            "[yellow]Real hardware is available for SQD "
             f"(limit {max_qpu_seconds:.0f} s of QPU time per run). "
-            "The app can submit jobs after a plan and a typed confirmation.[/yellow]"
+            "A job is sent only after a plan and an 'are you sure' confirmation. "
+            "Start with --no-allow-hardware to switch it off.[/yellow]"
         )
     console.print(f"MiraiChem app on http://{host}:{port}  (API docs at /api/docs)")
     uvicorn.run(api, host=host, port=port, log_level="warning")
