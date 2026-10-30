@@ -380,6 +380,7 @@ export interface SqdRow {
   shots: number;
   readout_noise: number;
   noise_model: string | null;
+  sampler: SqdSampler;
   noise_summary: { backend: string; survival: number; two_qubit_gates: number; median_readout_error: number } | null;
   spin: number;
   iterations: number;
@@ -420,6 +421,7 @@ export interface SqdGroup {
   shots: number;
   readout_noise: number;
   noise_model: string | null;
+  sampler: SqdSampler;
   iterations: number;
   samples_per_batch: number;
   num_batches: number;
@@ -439,12 +441,40 @@ export interface SqdGroup {
   seeds: number[];
 }
 
+/** Where an SQD run's bitstrings came from: the circuit, or one of two controls that leave it out. */
+export type SqdSampler = "circuit" | "hf_noise" | "uniform";
+
+/** Error of the subspace controls at one subspace size (strings per spin), in mHa against exact. */
+export interface SqdControlPoint {
+  k: number;
+  dim: number;
+  random_mean_mha: number;
+  random_std_mha: number;
+  excitation_mha: number;
+  oracle_mha: number;
+}
+
+export interface SqdControl {
+  molecule: string;
+  qubits: number;
+  bond_length: number;
+  n_strings: number;
+  e_exact: number;
+  hf_error_mha: number;
+  ccsd_error_mha: number;
+  n_random: number;
+  curve: SqdControlPoint[];
+  sqd: (SqdControlPoint & { seed: number; n_reps: number; error_mha: number })[];
+}
+
 export interface SqdResponse {
   source: SourceId;
   runs: SqdRow[];
   groups: SqdGroup[];
   /** Each molecule's equilibrium bond length; runs at any other distance belong to the stretched study. */
   default_bonds: Record<string, number>;
+  /** Subspace-control studies, one per molecule; empty when none were run. */
+  controls: SqdControl[];
 }
 
 export interface SqdOptions {

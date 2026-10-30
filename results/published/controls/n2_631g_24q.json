@@ -1,0 +1,242 @@
+{
+  "molecule": "N2_631G_24q",
+  "qubits": 24,
+  "bond_length": 1.0977,
+  "n_strings": 792,
+  "nelec": [
+    5,
+    5
+  ],
+  "e_exact": -108.99952765453708,
+  "e_hf": -108.86776337590784,
+  "e_ccsd": -108.99654632071888,
+  "hf_error_mha": 131.7642786292339,
+  "ccsd_error_mha": 2.9813338181980953,
+  "n_random": 10,
+  "curve": [
+    {
+      "k": 1,
+      "dim": 1,
+      "random_mean_mha": 131.76427862927653,
+      "random_std_mha": 0.0,
+      "excitation_mha": 131.76427862927653,
+      "oracle_mha": 131.76427862927653
+    },
+    {
+      "k": 2,
+      "dim": 4,
+      "random_mean_mha": 128.82816773923622,
+      "random_std_mha": 8.190348903593692,
+      "excitation_mha": 131.7016506415456,
+      "oracle_mha": 108.47058401090237
+    },
+    {
+      "k": 3,
+      "dim": 9,
+      "random_mean_mha": 131.71748117087532,
+      "random_std_mha": 0.06191826236644328,
+      "excitation_mha": 130.00673663822226,
+      "oracle_mha": 71.02784072390023
+    },
+    {
+      "k": 5,
+      "dim": 25,
+      "random_mean_mha": 131.50986021557145,
+      "random_std_mha": 0.6481533995258308,
+      "excitation_mha": 127.44116241722736,
+      "oracle_mha": 59.713891348920356
+    },
+    {
+      "k": 8,
+      "dim": 64,
+      "random_mean_mha": 131.57136958207474,
+      "random_std_mha": 0.30453649098187624,
+      "excitation_mha": 102.05752174451277,
+      "oracle_mha": 50.688237882965836
+    },
+    {
+      "k": 12,
+      "dim": 144,
+      "random_mean_mha": 131.31162701613732,
+      "random_std_mha": 0.642765456259692,
+      "excitation_mha": 122.9419159786147,
+      "oracle_mha": 36.476858104776966
+    },
+    {
+      "k": 18,
+      "dim": 324,
+      "random_mean_mha": 127.72109200062403,
+      "random_std_mha": 8.126353899133864,
+      "excitation_mha": 93.79333986056793,
+      "oracle_mha": 25.18385767143627
+    },
+    {
+      "k": 27,
+      "dim": 729,
+      "random_mean_mha": 127.46569673014676,
+      "random_std_mha": 7.168768994092993,
+      "excitation_mha": 67.69303468837506,
+      "oracle_mha": 16.621828355923185
+    },
+    {
+      "k": 40,
+      "dim": 1600,
+      "random_mean_mha": 126.95928310061076,
+      "random_std_mha": 7.964924451300487,
+      "excitation_mha": 21.200388388550095,
+      "oracle_mha": 10.235174286947313
+    },
+    {
+      "k": 60,
+      "dim": 3600,
+      "random_mean_mha": 118.39482020639453,
+      "random_std_mha": 14.828809733781334,
+      "excitation_mha": 21.48732394915953,
+      "oracle_mha": 4.457758941484258
+    },
+    {
+      "k": 90,
+      "dim": 8100,
+      "random_mean_mha": 120.29669665652848,
+      "random_std_mha": 15.308673276490511,
+      "excitation_mha": 13.705116023871255,
+      "oracle_mha": 2.1942332055999714
+    },
+    {
+      "k": 130,
+      "dim": 16900,
+      "random_mean_mha": 115.44909062608895,
+      "random_std_mha": 13.894257024419229,
+      "excitation_mha": 9.149797335098242,
+      "oracle_mha": 1.1448586231068703
+    },
+    {
+      "k": 190,
+      "dim": 36100,
+      "random_mean_mha": 90.88714986726814,
+      "random_std_mha": 21.06975289783969,
+      "excitation_mha": 4.0569070733340595,
+      "oracle_mha": 0.48454443451362295
+    },
+    {
+      "k": 250,
+      "dim": 62500,
+      "random_mean_mha": 95.36073257909123,
+      "random_std_mha": 17.153063377266562,
+      "excitation_mha": 1.4122837421552958,
+      "oracle_mha": 0.2248374152316046
+    }
+  ],
+  "sqd": [
+    {
+      "seed": 0,
+      "n_reps": 1,
+      "k": 66,
+      "dim": 4356,
+      "error_mha": 9.591880709649558,
+      "random_mean_mha": 122.36985609035715,
+      "random_std_mha": 21.065594118371525,
+      "excitation_mha": 20.455873624143806,
+      "oracle_mha": 3.73684566292809
+    },
+    {
+      "seed": 1,
+      "n_reps": 1,
+      "k": 56,
+      "dim": 3136,
+      "error_mha": 10.085527740955058,
+      "random_mean_mha": 126.93222779112857,
+      "random_std_mha": 7.744625992292238,
+      "excitation_mha": 20.36908740673482,
+      "oracle_mha": 5.247192207690432
+    },
+    {
+      "seed": 2,
+      "n_reps": 1,
+      "k": 52,
+      "dim": 2704,
+      "error_mha": 10.976249545549877,
+      "random_mean_mha": 125.26100289122299,
+      "random_std_mha": 12.891988648697676,
+      "excitation_mha": 21.46733383015942,
+      "oracle_mha": 6.023012520557813
+    },
+    {
+      "seed": 3,
+      "n_reps": 1,
+      "k": 63,
+      "dim": 3969,
+      "error_mha": 10.089140944600672,
+      "random_mean_mha": 122.5751120038396,
+      "random_std_mha": 10.976038058145202,
+      "excitation_mha": 13.424788671969168,
+      "oracle_mha": 4.113786878505721
+    },
+    {
+      "seed": 4,
+      "n_reps": 1,
+      "k": 52,
+      "dim": 2704,
+      "error_mha": 9.707359449791397,
+      "random_mean_mha": 129.52334660953255,
+      "random_std_mha": 2.169650462213458,
+      "excitation_mha": 20.2952209579621,
+      "oracle_mha": 6.023012520557813
+    },
+    {
+      "seed": 0,
+      "n_reps": 2,
+      "k": 86,
+      "dim": 7396,
+      "error_mha": 8.442088145159232,
+      "random_mean_mha": 120.54782606861208,
+      "random_std_mha": 10.550894388137698,
+      "excitation_mha": 18.380209918419155,
+      "oracle_mha": 2.342951820878625
+    },
+    {
+      "seed": 1,
+      "n_reps": 2,
+      "k": 77,
+      "dim": 5929,
+      "error_mha": 7.835271380542963,
+      "random_mean_mha": 117.35714943904297,
+      "random_std_mha": 20.842561927633163,
+      "excitation_mha": 12.053904335743937,
+      "oracle_mha": 2.7801037748815816
+    },
+    {
+      "seed": 2,
+      "n_reps": 2,
+      "k": 76,
+      "dim": 5776,
+      "error_mha": 8.484104650491986,
+      "random_mean_mha": 120.09686181060742,
+      "random_std_mha": 12.816962525448407,
+      "excitation_mha": 11.554797157231178,
+      "oracle_mha": 2.8420547602365787
+    },
+    {
+      "seed": 3,
+      "n_reps": 2,
+      "k": 83,
+      "dim": 6889,
+      "error_mha": 8.551126130953435,
+      "random_mean_mha": 113.03251303632183,
+      "random_std_mha": 14.30345656031605,
+      "excitation_mha": 19.528422718423144,
+      "oracle_mha": 2.423903324540788
+    },
+    {
+      "seed": 4,
+      "n_reps": 2,
+      "k": 84,
+      "dim": 7056,
+      "error_mha": 8.296270135843997,
+      "random_mean_mha": 118.13834110803468,
+      "random_std_mha": 13.462246481540927,
+      "excitation_mha": 17.36196678922397,
+      "oracle_mha": 2.3979179811419726
+    }
+  ]
+}

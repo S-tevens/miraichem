@@ -1,0 +1,85 @@
+{
+  "config": {
+    "molecule": {
+      "name": "N2",
+      "geometry": "N 0 0 0; N 0 0 {bond_length}",
+      "basis": "sto3g",
+      "charge": 0,
+      "spin": 0,
+      "active_electrons": null,
+      "active_orbitals": null,
+      "freeze_core": false
+    },
+    "bond_length": 1.0977,
+    "n_reps": 1,
+    "shots": 10000,
+    "readout_noise": 0.0,
+    "iterations": 3,
+    "samples_per_batch": 300,
+    "num_batches": 3,
+    "seed": 42,
+    "noise_model": null
+  },
+  "config_hash": "85f46ed54391",
+  "status": "ok",
+  "error_message": null,
+  "e_sqd": -107.6528276218019,
+  "e_hf": -107.49589330783446,
+  "e_exact": -107.65282873014972,
+  "e_ccsd": -107.64894128802341,
+  "abs_error_mha": 0.0011083478170803573,
+  "hf_error_mha": 156.93542231525726,
+  "ccsd_error_mha": 3.88744212631309,
+  "below_hf_mha": 156.93431396744018,
+  "below_ccsd_mha": 3.8863337784960095,
+  "within_chemical_accuracy": true,
+  "num_qubits": 20,
+  "n_determinants": 14400,
+  "n_distinct_samples": 3723,
+  "n_postselected": 945,
+  "subspace_dim": 10404,
+  "subspace_fraction": 0.7225,
+  "error_per_iteration_mha": [
+    0.17273899354108835,
+    1.4960276519673243,
+    0.0011083478170803573
+  ],
+  "energy_per_iteration": [
+    -107.65265599115618,
+    -107.65133270249775,
+    -107.6528276218019
+  ],
+  "wall_time_s": 25.382009650998953,
+  "sampling_time_s": null,
+  "diagonalisation_time_s": 22.64948337900205,
+  "fci_time_s": 1.2382220900001357,
+  "ccsd_time_s": 0.6308515899982012,
+  "library_versions": {
+    "qiskit": "2.5.2",
+    "qiskit-addon-sqd": "0.14.0",
+    "ffsim": "0.0.85",
+    "pyscf": "2.14.0",
+    "numpy": "2.2.6",
+    "scipy": "1.17.1"
+  },
+  "git_commit": "9744134",
+  "timestamp": "2026-10-30T17:43:09+00:00",
+  "hardware": {
+    "backend": "ibm_kingston",
+    "job_id": "dbide1ene4hc73beboog",
+    "circuit": "LUCJ with device-friendly couplings",
+    "ideal_same_circuit": {
+      "error_mha": 54.11922976904293,
+      "below_hf_mha": 102.81619254621432,
+      "distinct_samples": 12
+    },
+    "two_qubit_gates": 272,
+    "depth": 226,
+    "qubits_used": 21,
+    "duration_s": 9.219999999999993e-6,
+    "shots": 10000,
+    "estimated_qpu_s": 8.388300000000001,
+    "qpu_seconds": 5.0
+  },
+  "noise_summary": null
+}

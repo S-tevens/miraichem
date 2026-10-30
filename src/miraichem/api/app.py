@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 from miraichem.api.data import OPTIONS, Workspace, ranked_row, reference_energies, run_row
 from miraichem.api.jobs import JobManager
 from miraichem.api.sqd import (
+    load_controls,
     load_rows,
     sqd_default_bonds,
     sqd_groups,
@@ -279,6 +280,7 @@ def create_app(
                 "runs": rows,
                 "groups": sqd_groups(rows),
                 "default_bonds": sqd_default_bonds(configs_dir),
+                "controls": load_controls(ws.path(s)),
             }
         )
 

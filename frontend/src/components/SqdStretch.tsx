@@ -35,7 +35,8 @@ const isStudy = (g: SqdGroup) =>
   g.iterations === 3 &&
   g.samples_per_batch === 300 &&
   g.num_batches === 3 &&
-  g.shots === 20000;
+  g.shots === 20000 &&
+  g.sampler === "circuit";
 
 function BondChart({ lines, domain }: { lines: Line[]; domain: [number, number] }) {
   const [ref, width] = useWidth<HTMLDivElement>();

@@ -94,6 +94,35 @@ def sample_lucj(
     return dedupe(bits)
 
 
+def sample_control(
+    problem: SqdProblem,
+    kind: str,
+    shots: int,
+    readout_noise: float,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Bitstrings that leave the circuit out, for control experiments.
+
+    ``hf_noise`` samples the Hartree-Fock state (one bitstring, so every shot is the same) and flips
+    each bit with ``readout_noise``: what noise alone gives. ``uniform`` draws every bit at random,
+    carrying no information about the molecule. Both go through the same recovery, post-selection
+    and subspace solve as the circuit, so any difference in error comes from the circuit.
+    """
+    if kind == "hf_noise":
+        state = ffsim.hartree_fock_state(problem.norb, problem.nelec)
+        strings = ffsim.sample_state_vector(
+            state, norb=problem.norb, nelec=problem.nelec, shots=shots, seed=rng
+        )
+        bits = np.array([[c == "1" for c in s] for s in strings], dtype=bool)
+        if readout_noise > 0:
+            bits ^= rng.random(bits.shape) < readout_noise
+    elif kind == "uniform":
+        bits = rng.random((shots, 2 * problem.norb)) < 0.5
+    else:
+        raise ValueError(f"Unknown control sampler {kind!r}.")
+    return dedupe(bits)
+
+
 def dedupe(bits: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Collapse repeated rows into a bitstring matrix plus empirical probabilities."""
     matrix, counts = np.unique(bits, axis=0, return_counts=True)

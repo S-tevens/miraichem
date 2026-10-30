@@ -30,6 +30,7 @@ const median = (v: number[]) => {
 const isStudy = (g: SqdGroup) =>
   g.molecule.toUpperCase().startsWith("N2") &&
   g.noise_model === null &&
+  g.sampler === "circuit" &&
   g.readout_noise === 0.02 &&
   g.iterations === 3 &&
   g.samples_per_batch === 300 &&

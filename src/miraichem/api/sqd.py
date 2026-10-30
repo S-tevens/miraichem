@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ GROUP_FIELDS = (
     "samples_per_batch",
     "num_batches",
     "noise_model",
+    "sampler",
 )
 
 
@@ -48,6 +50,7 @@ def sqd_row(r: SqdResult) -> dict[str, Any]:
         "shots": c.shots,
         "readout_noise": c.readout_noise,
         "noise_model": c.noise_model,
+        "sampler": c.sampler,
         "noise_summary": r.noise_summary,
         "spin": c.molecule.spin,
         "iterations": c.iterations,
@@ -125,6 +128,14 @@ def sqd_default_bonds(configs_dir: Path) -> dict[str, float]:
         text = p.read_text()
         out[yaml.safe_load(text)["name"]] = load_sqd_yaml(text)[1]
     return out
+
+
+def load_controls(root: Path) -> list[dict[str, Any]]:
+    """The saved subspace-control studies (see scripts/run_sqd_controls.py), one per molecule."""
+    folder = Path(root) / "controls"
+    if not folder.is_dir():
+        return []
+    return [json.loads(f.read_text(encoding="utf-8")) for f in sorted(folder.glob("*.json"))]
 
 
 def load_rows(root: Path) -> list[dict[str, Any]]:

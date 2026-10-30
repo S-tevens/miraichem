@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -58,10 +59,22 @@ class SqdConfig(BaseModel):
         ),
     )
 
+    sampler: Literal["circuit", "hf_noise", "uniform"] = Field(
+        "circuit",
+        description=(
+            "Where the bitstrings come from. 'circuit' samples the LUCJ circuit (the method). The "
+            "other two are controls that leave the circuit out: 'hf_noise' samples only the "
+            "Hartree-Fock state and adds the same bit-flip noise, 'uniform' draws every bit at "
+            "random. They show what the circuit adds on top of noise and recovery."
+        ),
+    )
+
     @model_validator(mode="after")
     def _one_noise_source(self) -> SqdConfig:
         if self.noise_model and self.readout_noise > 0:
             raise ValueError("Use either readout_noise or noise_model, not both.")
+        if self.sampler != "circuit" and self.noise_model:
+            raise ValueError("A control sampler uses readout_noise, not a device noise model.")
         return self
 
     def config_hash(self) -> str:
@@ -73,5 +86,7 @@ class SqdConfig(BaseModel):
         data = self.model_dump(mode="json")
         if data["noise_model"] is None:
             del data["noise_model"]
+        if data["sampler"] == "circuit":
+            del data["sampler"]
         payload = json.dumps(data, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()[:12]

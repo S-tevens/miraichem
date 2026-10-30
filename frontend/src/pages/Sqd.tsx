@@ -9,6 +9,7 @@ import { SqdHardware } from "../components/SqdHardware";
 import { MoleculeViewer } from "../components/MoleculeViewer";
 import { SqdScaling } from "../components/SqdScaling";
 import { SqdStretch } from "../components/SqdStretch";
+import { SqdControls } from "../components/SqdControls";
 import { duration } from "../lib/format";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Stat } from "../ui/ui";
 import {
@@ -38,6 +39,8 @@ const int = (n: number | null | undefined) => (n === null || n === undefined ? "
 
 function groupLabel(g: SqdGroup): string {
   const parts = [g.noise_model ? `${g.noise_model} noise model` : `noise ${g.readout_noise}`];
+  if (g.sampler === "hf_noise") parts.unshift("no circuit: noisy Hartree-Fock state");
+  if (g.sampler === "uniform") parts.unshift("no circuit: random bits");
   if (g.samples_per_batch !== 300) parts.push(`${g.samples_per_batch} samples per batch`);
   if (g.iterations !== 3) parts.push(`${g.iterations} ${g.iterations === 1 ? "round" : "rounds"}`);
   if (g.n_reps !== 1) parts.push(`${g.n_reps} circuit layers`);
@@ -52,6 +55,7 @@ function sameGroup(a: SqdRow, g: SqdGroup): boolean {
     a.shots === g.shots &&
     a.readout_noise === g.readout_noise &&
     a.noise_model === g.noise_model &&
+    a.sampler === g.sampler &&
     a.iterations === g.iterations &&
     a.samples_per_batch === g.samples_per_batch &&
     a.num_batches === g.num_batches
@@ -70,6 +74,7 @@ function typicalRun(rows: SqdRow[], groups: SqdGroup[]): SqdRow | undefined {
     g.shots === DEFAULTS.shots &&
     g.readout_noise === DEFAULTS.readout_noise &&
     g.noise_model === null &&
+    g.sampler === "circuit" &&
     g.iterations === DEFAULTS.iterations &&
     g.samples_per_batch === DEFAULTS.samples_per_batch &&
     g.num_batches === DEFAULTS.num_batches;
@@ -349,7 +354,9 @@ function Stats({ run }: { run: SqdRow }) {
 }
 
 function runLabel(r: SqdRow): string {
-  const where = r.hardware ? `on ${r.hardware.backend}, ${r.shots} shots` : `noise ${r.readout_noise}, ${r.iterations} rounds, seed ${r.seed}`;
+  const control = r.sampler === "hf_noise" ? "no circuit (noisy HF state), " : r.sampler === "uniform" ? "no circuit (random bits), " : "";
+  const bond = r.bond_length !== undefined ? `${r.bond_length} Å, ` : "";
+  const where = r.hardware ? `on ${r.hardware.backend}, ${r.shots} shots, ${bond.slice(0, -2)}` : `${control}${bond}noise ${r.readout_noise}, ${r.iterations} rounds, seed ${r.seed}`;
   const score = r.error_mha !== null ? `${mha(r.error_mha)} mHa error` : `${mha(r.below_hf_mha)} mHa below HF`;
   return `${molName(r.molecule)} ${where}: ${score}`;
 }
@@ -750,8 +757,8 @@ export function SqdPage() {
     const d = defaultBonds?.[r.molecule];
     return d === undefined || Math.abs(r.bond_length - d) < 1e-6;
   };
-  const eqRows = useMemo(() => allRows.filter((r) => atDefault(r)), [allRows, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
-  const eqGroups = useMemo(() => allGroups.filter((g) => atDefault(g)), [allGroups, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const eqRows = useMemo(() => allRows.filter((r) => atDefault(r) && r.sampler === "circuit"), [allRows, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const eqGroups = useMemo(() => allGroups.filter((g) => atDefault(g) && g.sampler === "circuit"), [allGroups, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
   const molecules = useMemo(() => [...new Set(allRows.filter((r) => r.status === "ok").map((r) => r.molecule))].sort(), [allRows]);
   // the molecule shown: the one a selected or just-finished run belongs to, else the user's pick, else N2
   const molecule = allRows.find((r) => r.hash === sel)?.molecule ?? (molSel && molecules.includes(molSel) ? molSel : molecules.includes("N2") ? "N2" : molecules[0]);
@@ -766,7 +773,7 @@ export function SqdPage() {
   if (q.error) return <div className="page"><Notice tone="bad">{q.error}</Notice></div>;
 
   const ok = rows.filter((r) => r.status === "ok");
-  const okEq = ok.filter(atDefault);
+  const okEq = ok.filter((r) => atDefault(r) && r.sampler === "circuit");
   return (
     <div className="page">
       <PageHead
@@ -868,6 +875,14 @@ export function SqdPage() {
       )}
 
       <SqdStretch groups={allGroups} molecule={molecule} />
+
+      <SqdControls
+        groups={allGroups}
+        controls={q.data?.controls ?? []}
+        molecule={molecule}
+        defaultBonds={defaultBonds ?? {}}
+        hardwareRows={allRows.filter((r) => r.molecule === molecule && r.hardware && r.status === "ok")}
+      />
 
       <SqdScaling rows={eqRows} groups={eqGroups} />
 

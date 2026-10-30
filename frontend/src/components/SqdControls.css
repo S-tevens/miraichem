@@ -1,0 +1,27 @@
+.ctl__row {
+  font-size: 13px;
+  fill: var(--fg);
+}
+
+.ctl__sub {
+  font-size: 11px;
+  fill: var(--fg-3, var(--fg-2));
+}
+
+.ctl__ref {
+  font-size: 11px;
+  fill: var(--fg-2);
+}
+
+.ctl__dot {
+  stroke: var(--panel);
+  stroke-width: 1.5;
+}
+
+.ctl__dot--q {
+  fill: var(--c-vqe);
+}
+
+.ctl__dot--q2 {
+  fill: #8fe0bd;
+}

@@ -22,7 +22,12 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from miraichem.sqd.config import SqdConfig
 from miraichem.sqd.problem import SqdProblem, build_problem
 from miraichem.sqd.result import SqdResult
-from miraichem.sqd.sampler import device_interaction_pairs, n_determinants, sample_lucj
+from miraichem.sqd.sampler import (
+    device_interaction_pairs,
+    n_determinants,
+    sample_control,
+    sample_lucj,
+)
 from miraichem.vqe.runner import git_commit
 
 log = logging.getLogger(__name__)
@@ -67,7 +72,11 @@ def run_sqd(
         )
         rng = np.random.default_rng(cfg.seed)
         t_sample = time.perf_counter()
-        if cfg.noise_model:
+        if cfg.sampler != "circuit":
+            matrix, probs = sample_control(
+                problem, cfg.sampler, cfg.shots, cfg.readout_noise, rng
+            )
+        elif cfg.noise_model:
             # A device model also fixes the circuit: only the couplings that fit the device.
             from miraichem.sqd.noise import device_noise
 
