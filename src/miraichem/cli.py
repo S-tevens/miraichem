@@ -153,6 +153,13 @@ def sqd(
             "Default: only when small or already saved.",
         ),
     ] = None,
+    sampler: Annotated[
+        str,
+        typer.Option(
+            help="Where the bitstrings come from: circuit (the method), or a control that leaves "
+            "the circuit out: hf_noise (Hartree-Fock state plus noise) or uniform (random bits)"
+        ),
+    ] = "circuit",
     iterations: int = 3,
     samples_per_batch: int = 300,
     num_batches: int = 3,
@@ -171,6 +178,7 @@ def sqd(
         shots=shots,
         readout_noise=readout_noise,
         noise_model=noise_model,
+        sampler=sampler,  # type: ignore[arg-type] - validated by SqdConfig
         iterations=iterations,
         samples_per_batch=samples_per_batch,
         num_batches=num_batches,

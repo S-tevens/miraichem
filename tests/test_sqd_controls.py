@@ -183,3 +183,30 @@ def test_the_sqd_endpoint_serves_default_bonds_and_controls(tmp_path):
     body = TestClient(app).get("/api/sqd", params={"source": "published"}).json()
     assert body["default_bonds"]["N2"] == pytest.approx(1.0977)
     assert body["controls"] == [{"molecule": "N2", "sqd": []}]
+
+
+def test_the_command_line_can_run_a_control_sampler(tmp_path):
+    from typer.testing import CliRunner
+
+    from miraichem.cli import app
+    from miraichem.sqd.storage import load_sqd_results
+
+    out = CliRunner().invoke(
+        app,
+        [
+            "sqd",
+            "--molecule",
+            str(ROOT / "configs" / "sqd" / "n2.yaml"),
+            "--sampler",
+            "hf_noise",
+            "--readout-noise",
+            "0.02",
+            "--shots",
+            "2000",
+            "--results-dir",
+            str(tmp_path),
+        ],
+    )
+    assert out.exit_code == 0, out.output
+    saved = load_sqd_results(tmp_path)
+    assert len(saved) == 1 and saved[0].config.sampler == "hf_noise"
