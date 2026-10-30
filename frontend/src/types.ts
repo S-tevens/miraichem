@@ -443,6 +443,8 @@ export interface SqdResponse {
   source: SourceId;
   runs: SqdRow[];
   groups: SqdGroup[];
+  /** Each molecule's equilibrium bond length; runs at any other distance belong to the stretched study. */
+  default_bonds: Record<string, number>;
 }
 
 export interface SqdOptions {

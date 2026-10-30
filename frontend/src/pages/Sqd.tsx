@@ -8,6 +8,7 @@ import { useWidth } from "../lib/hooks";
 import { SqdHardware } from "../components/SqdHardware";
 import { MoleculeViewer } from "../components/MoleculeViewer";
 import { SqdScaling } from "../components/SqdScaling";
+import { SqdStretch } from "../components/SqdStretch";
 import { duration } from "../lib/format";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Stat } from "../ui/ui";
 import {
@@ -742,11 +743,20 @@ export function SqdPage() {
 
   const allRows = useMemo(() => q.data?.runs ?? [], [q.data]);
   const allGroups = useMemo(() => q.data?.groups ?? [], [q.data]);
+  // Runs at another bond length than the molecule's default belong to the stretched-bond study, so
+  // the seed study, the scaling chart and the "typical run" only use the equilibrium ones.
+  const defaultBonds = q.data?.default_bonds;
+  const atDefault = (r: { molecule: string; bond_length: number }) => {
+    const d = defaultBonds?.[r.molecule];
+    return d === undefined || Math.abs(r.bond_length - d) < 1e-6;
+  };
+  const eqRows = useMemo(() => allRows.filter((r) => atDefault(r)), [allRows, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const eqGroups = useMemo(() => allGroups.filter((g) => atDefault(g)), [allGroups, defaultBonds]); // eslint-disable-line react-hooks/exhaustive-deps
   const molecules = useMemo(() => [...new Set(allRows.filter((r) => r.status === "ok").map((r) => r.molecule))].sort(), [allRows]);
   // the molecule shown: the one a selected or just-finished run belongs to, else the user's pick, else N2
   const molecule = allRows.find((r) => r.hash === sel)?.molecule ?? (molSel && molecules.includes(molSel) ? molSel : molecules.includes("N2") ? "N2" : molecules[0]);
   const rows = useMemo(() => allRows.filter((r) => r.molecule === molecule), [allRows, molecule]);
-  const groups = useMemo(() => allGroups.filter((g) => g.molecule === molecule), [allGroups, molecule]);
+  const groups = useMemo(() => eqGroups.filter((g) => g.molecule === molecule), [eqGroups, molecule]);
   const run = useMemo(
     () => rows.find((r) => r.hash === sel && r.status === "ok") ?? typicalRun(rows, groups),
     [rows, groups, sel],
@@ -756,6 +766,7 @@ export function SqdPage() {
   if (q.error) return <div className="page"><Notice tone="bad">{q.error}</Notice></div>;
 
   const ok = rows.filter((r) => r.status === "ok");
+  const okEq = ok.filter(atDefault);
   return (
     <div className="page">
       <PageHead
@@ -846,7 +857,7 @@ export function SqdPage() {
       )}
 
       {groups.length > 0 && (
-        <Panel title="Across seeds" aside={`${ok.length} runs, ${groups.length} settings`}>
+        <Panel title="Across seeds" aside={`${okEq.length} runs, ${groups.length} settings`}>
           <p className="small muted" style={{ marginBottom: 10, maxWidth: "76ch" }}>
             One run can be lucky, so each setting is repeated over several seeds. Noise-free samples give too few distinct
             bitstrings to span a useful subspace; a little noise widens them, which is what the lower rows show.
@@ -856,7 +867,9 @@ export function SqdPage() {
         </Panel>
       )}
 
-      <SqdScaling rows={allRows} groups={allGroups} />
+      <SqdStretch groups={allGroups} molecule={molecule} />
+
+      <SqdScaling rows={eqRows} groups={eqGroups} />
 
       {!DEMO && <RunForm onStarted={setWatch} />}
       {!DEMO && (

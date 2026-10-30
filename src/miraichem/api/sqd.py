@@ -118,6 +118,15 @@ def sqd_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return groups
 
 
+def sqd_default_bonds(configs_dir: Path) -> dict[str, float]:
+    """Each SQD molecule's default (equilibrium) bond length, by the name its results use."""
+    out = {}
+    for p in sorted((Path(configs_dir) / "sqd").glob("*.yaml")):
+        text = p.read_text()
+        out[yaml.safe_load(text)["name"]] = load_sqd_yaml(text)[1]
+    return out
+
+
 def load_rows(root: Path) -> list[dict[str, Any]]:
     rows = [sqd_row(r) for r in load_sqd_results(root)]
     rows.sort(key=lambda r: r["timestamp"] or "", reverse=True)

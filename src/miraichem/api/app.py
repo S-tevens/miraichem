@@ -23,7 +23,12 @@ from pydantic import BaseModel, Field, ValidationError
 
 from miraichem.api.data import OPTIONS, Workspace, ranked_row, reference_energies, run_row
 from miraichem.api.jobs import JobManager
-from miraichem.api.sqd import load_rows, sqd_groups, sqd_molecules
+from miraichem.api.sqd import (
+    load_rows,
+    sqd_default_bonds,
+    sqd_groups,
+    sqd_molecules,
+)
 from miraichem.api.views import clean, recommendation_json
 from miraichem.backends.hardware import get_service
 from miraichem.benchmark.ranking import Weights, recommend
@@ -268,7 +273,14 @@ def create_app(
     def sqd_results(source: str | None = None):
         s = _source(ws, source)
         rows = load_rows(ws.path(s))
-        return clean({"source": s, "runs": rows, "groups": sqd_groups(rows)})
+        return clean(
+            {
+                "source": s,
+                "runs": rows,
+                "groups": sqd_groups(rows),
+                "default_bonds": sqd_default_bonds(configs_dir),
+            }
+        )
 
     @app.post("/api/sqd/run", status_code=202)
     def start_sqd(req: SqdRequest):
