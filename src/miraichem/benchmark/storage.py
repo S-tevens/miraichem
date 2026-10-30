@@ -40,7 +40,16 @@ def cached_result(config_hash: str, molecule: str, results_dir: Path = DEFAULT_R
 
 
 # Sub-folders of results/ that hold other kinds of JSON, not run results.
-NON_RUN_DIRS = {"curves", "hardware", "summary", "published", "models", "sqd"}
+NON_RUN_DIRS = {
+    "curves",
+    "hardware",
+    "summary",
+    "published",
+    "models",
+    "sqd",
+    "exact",
+    "structures",
+}
 
 
 def load_all_results(results_dir: Path = DEFAULT_RESULTS_DIR, molecule: str | None = None):

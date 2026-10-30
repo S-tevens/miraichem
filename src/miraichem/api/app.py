@@ -7,6 +7,7 @@ its explicit opt-in, cost estimate and confirmation in the command line (``mirai
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
@@ -32,6 +33,7 @@ from miraichem.config import MoleculeConfig, RunConfig
 from miraichem.predict import ErrorPredictor, nearest_runs
 from miraichem.predict.service import shape_for_config
 from miraichem.sqd import SqdConfig, run_sqd
+from miraichem.sqd.config import load_sqd_yaml
 from miraichem.sqd.hardware import (
     CONFIRM_PHRASE,
     DEFAULT_MAX_QPU_S,
@@ -68,10 +70,12 @@ class SqdRequest(BaseModel):
     """A single SQD run to start (sampling is simulated, so this never uses a quantum device)."""
 
     molecule: str = "n2"
-    bond_length: float = Field(1.0977, gt=0, le=10)
+    bond_length: float | None = Field(None, gt=0, le=10, description="empty = the molecule's own")
     n_reps: int = Field(1, ge=1, le=4)
     shots: int = Field(20000, ge=100, le=200_000)
     readout_noise: float = Field(0.02, ge=0, lt=0.5)
+    noise_model: str | None = Field(None, description="fake device name; replaces readout_noise")
+    exact: bool = Field(False, description="also solve the exact energy (can take minutes)")
     iterations: int = Field(3, ge=1, le=8)
     samples_per_batch: int = Field(300, ge=10, le=5000)
     num_batches: int = Field(3, ge=1, le=10)
@@ -82,7 +86,7 @@ class SqdHardwareRequest(BaseModel):
     """Plan a real-device SQD run. Planning transpiles for the device and uses no QPU time."""
 
     molecule: str = "n2"
-    bond_length: float = Field(1.0977, gt=0, le=10)
+    bond_length: float | None = Field(None, gt=0, le=10)
     backend: str | None = Field(None, description="device name; empty = least busy")
     n_reps: int = Field(1, ge=1, le=4)
     shots: int = Field(10000, ge=100, le=100_000)
@@ -249,9 +253,15 @@ def create_app(
 
     # ------------------------------------------------------------------ SQD
 
+    @app.get("/api/structures")
+    def structures():
+        """3D structures and orbital surfaces for the molecule viewer (made by make_structures)."""
+        path = Path(published_dir) / "structures" / "structures.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+
     @app.get("/api/sqd/options")
     def sqd_options():
-        return {"molecules": sqd_molecules(configs_dir)}
+        return {"molecules": sqd_molecules(configs_dir, Path(results_dir) / "exact")}
 
     @app.get("/api/sqd")
     def sqd_results(source: str | None = None):
@@ -264,20 +274,23 @@ def create_app(
         path = Path(configs_dir) / "sqd" / f"{Path(req.molecule).stem}.yaml"
         if not path.is_file():
             raise HTTPException(404, f"Unknown SQD molecule {req.molecule!r}.")
-        size = next((m for m in sqd_molecules(configs_dir) if m["id"] == path.stem), None)
+        molecules = sqd_molecules(configs_dir, Path(results_dir) / "exact")
+        size = next((m for m in molecules if m["id"] == path.stem), None)
         if size is not None and not size["simulable"]:
             raise HTTPException(
                 422,
                 f"{size['name']} has {size['qubits']} qubits: too large to simulate here. "
                 "It can only be sampled on a real device.",
             )
+        mol, default_bond = load_sqd_yaml(path.read_text())
         try:
             cfg = SqdConfig(
-                molecule=MoleculeConfig(**yaml.safe_load(path.read_text())),
-                bond_length=req.bond_length,
+                molecule=mol,
+                bond_length=req.bond_length or default_bond,
                 n_reps=req.n_reps,
                 shots=req.shots,
-                readout_noise=req.readout_noise,
+                readout_noise=0.0 if req.noise_model else req.readout_noise,
+                noise_model=req.noise_model or None,
                 iterations=req.iterations,
                 samples_per_batch=req.samples_per_batch,
                 num_batches=req.num_batches,
@@ -289,7 +302,11 @@ def create_app(
 
         def work(job) -> None:
             job.message = "Solving the classical references and sampling the circuit..."
-            result = run_sqd(cfg)
+            if req.exact:
+                job.message = "Solving the exact energy once (it is saved, so this is a one-off)..."
+            result = run_sqd(
+                cfg, exact=True if req.exact else None, exact_cache=Path(results_dir) / "exact"
+            )
             save_sqd_result(result, Path(results_dir))
             job.result_hashes = [result.config_hash]
             if result.status == "failed":
@@ -316,7 +333,9 @@ def create_app(
             if key not in problem_cache:
                 if len(problem_cache) >= 3:
                     problem_cache.pop(next(iter(problem_cache)))
-                problem_cache[key] = build_problem(molecule_cfg, bond_length)
+                problem_cache[key] = build_problem(
+                    molecule_cfg, bond_length, cache_dir=Path(results_dir) / "exact"
+                )
             return problem_cache[key]
 
     def require_hardware() -> None:
@@ -346,11 +365,12 @@ def create_app(
         path = Path(configs_dir) / "sqd" / f"{Path(req.molecule).stem}.yaml"
         if not path.is_file():
             raise HTTPException(404, f"Unknown SQD molecule {req.molecule!r}.")
+        mol, default_bond = load_sqd_yaml(path.read_text())
+        bond = req.bond_length or default_bond
         try:
-            mol = MoleculeConfig(**yaml.safe_load(path.read_text()))
             cfg = SqdConfig(
                 molecule=mol,
-                bond_length=req.bond_length,
+                bond_length=bond,
                 n_reps=req.n_reps,
                 shots=req.shots,
                 readout_noise=0.0,  # a real device supplies the noise
@@ -365,7 +385,7 @@ def create_app(
 
         def work(job) -> None:
             job.message = "Solving the classical references (no QPU time is used)..."
-            problem = sqd_problem(mol, req.bond_length)
+            problem = sqd_problem(mol, bond)
             job.message = "Choosing the device and transpiling the circuit for it..."
             plan = prepare_plan(
                 cfg,

@@ -72,6 +72,7 @@ def test_export_writes_every_view_the_app_asks_for(tmp_path):
         "_api_predictor.json",
         "_api_sqd.json",
         "_api_sqd_options.json",
+        "_api_structures.json",
         "_api_rank_backend=noisy_molecule=H2.json",
     ):
         assert (out / name).is_file(), name

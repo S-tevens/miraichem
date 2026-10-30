@@ -86,6 +86,7 @@ def export_demo(
         "/api/sweeps",
         "/api/sqd",
         "/api/sqd/options",
+        "/api/structures",
     ):
         save(path)
 

@@ -1,0 +1,9 @@
+# NO radical (one unpaired electron, a doublet) in STO-3G, all 10 orbitals and 15 electrons: 20 qubits,
+# 8 spin-up and 7 spin-down electrons. The second open-shell molecule, next to the O2 triplet. It uses
+# ROHF orbitals, an unrestricted CCSD and the spin-unbalanced circuit. Equilibrium bond length ~1.151 A.
+name: "NO"
+bond_length: 1.151
+geometry: "N 0 0 0; O 0 0 {bond_length}"
+basis: sto3g
+charge: 0
+spin: 1

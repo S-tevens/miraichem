@@ -9,9 +9,23 @@ from __future__ import annotations
 import hashlib
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from miraichem.config import MoleculeConfig
+
+DEFAULT_BOND_LENGTH = 1.0977  # Angstrom (N2); other molecules set bond_length in their YAML
+
+
+def load_sqd_yaml(text: str) -> tuple[MoleculeConfig, float]:
+    """Read an SQD molecule file: the molecule plus its default bond length in Angstrom.
+
+    ``bond_length`` is an extra key in the YAML (not part of ``MoleculeConfig``, so that adding it
+    does not change any result's hash).
+    """
+    data = yaml.safe_load(text)
+    bond = float(data.pop("bond_length", DEFAULT_BOND_LENGTH))
+    return MoleculeConfig(**data), bond
 
 
 class SqdConfig(BaseModel):
@@ -36,8 +50,28 @@ class SqdConfig(BaseModel):
     samples_per_batch: int = Field(300, ge=1, description="bitstrings per subspace batch")
     num_batches: int = Field(3, ge=1, description="independent subspaces per round")
     seed: int = 42
+    noise_model: str | None = Field(
+        None,
+        description=(
+            "Name of a fake IBM device (for example FakeFez) whose calibration drives the sampling "
+            "noise instead of the uniform bit flip; leave readout_noise at 0 when it is set"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _one_noise_source(self) -> SqdConfig:
+        if self.noise_model and self.readout_noise > 0:
+            raise ValueError("Use either readout_noise or noise_model, not both.")
+        return self
 
     def config_hash(self) -> str:
-        """Stable 12-char hash of the full config (sorted-key JSON, SHA-256)."""
-        payload = json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        """Stable 12-char hash of the full config (sorted-key JSON, SHA-256).
+
+        A field added later is left out while it is unset, so results saved before it existed keep
+        their hash.
+        """
+        data = self.model_dump(mode="json")
+        if data["noise_model"] is None:
+            del data["noise_model"]
+        payload = json.dumps(data, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()[:12]

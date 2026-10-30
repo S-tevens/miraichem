@@ -54,7 +54,7 @@ def resolve_active_space(cfg: MoleculeConfig, mol: gto.Mole) -> ActiveSpace | No
     act = cfg.active_orbitals
     if isinstance(act, int):
         # Orbitals centred on the HOMO-LUMO gap, like qiskit-nature's default.
-        n_act_occ = cfg.active_electrons // 2
+        n_act_occ = (cfg.active_electrons + cfg.spin) // 2  # spin-up electrons
         ncore = (nelec - cfg.active_electrons) // 2
         indices = tuple(range(ncore, ncore + act))
         if n_act_occ > act:
@@ -67,4 +67,8 @@ def resolve_active_space(cfg: MoleculeConfig, mol: gto.Mole) -> ActiveSpace | No
         raise ValueError("More active electrons than the active orbitals can hold.")
     if (nelec - cfg.active_electrons) % 2:
         raise ValueError("Frozen electrons must pair up (closed-shell core).")
+    if (cfg.active_electrons - cfg.spin) % 2 or cfg.active_electrons < cfg.spin:
+        raise ValueError(
+            f"{cfg.active_electrons} active electrons cannot hold {cfg.spin} unpaired electrons."
+        )
     return ActiveSpace(cfg.active_electrons, indices)

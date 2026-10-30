@@ -52,6 +52,14 @@ def _load_molecule(path: Path) -> MoleculeConfig:
     return MoleculeConfig(**yaml.safe_load(path.read_text()))
 
 
+def _load_sqd_molecule(path: Path, bond_length: float | None) -> tuple[MoleculeConfig, float]:
+    """An SQD molecule file and the bond length to use (the file's own unless one is given)."""
+    from miraichem.sqd.config import load_sqd_yaml
+
+    mol, default_bond = load_sqd_yaml(path.read_text())
+    return mol, bond_length or default_bond
+
+
 @app.command()
 def reference(
     molecule: Annotated[Path, typer.Option(help="Molecule YAML, e.g. configs/molecules/h2.yaml")],
@@ -125,12 +133,26 @@ def run(
 @app.command()
 def sqd(
     molecule: Annotated[Path, typer.Option(help="Molecule YAML, e.g. configs/sqd/n2.yaml")],
-    bond_length: Annotated[float, typer.Option(help="Bond length in Angstrom")] = 1.0977,
+    bond_length: Annotated[
+        float | None, typer.Option(help="Bond length in Angstrom (default: the file's own)")
+    ] = None,
     n_reps: int = 1,
     shots: int = 20000,
     readout_noise: Annotated[
         float, typer.Option(help="Bit-flip probability per sampled bit")
     ] = 0.0,
+    noise_model: Annotated[
+        str | None,
+        typer.Option(help="Fake IBM device (for example FakeFez) to drive the sampling noise"),
+    ] = None,
+    exact: Annotated[
+        bool | None,
+        typer.Option(
+            "--exact/--no-exact",
+            help="Solve the exact energy (minutes for large spaces; saved so it runs once). "
+            "Default: only when small or already saved.",
+        ),
+    ] = None,
     iterations: int = 3,
     samples_per_batch: int = 300,
     num_batches: int = 3,
@@ -141,18 +163,20 @@ def sqd(
     from miraichem.sqd import SqdConfig, run_sqd
     from miraichem.sqd.storage import save_sqd_result
 
+    mol, bond = _load_sqd_molecule(molecule, bond_length)
     cfg = SqdConfig(
-        molecule=_load_molecule(molecule),
-        bond_length=bond_length,
+        molecule=mol,
+        bond_length=bond,
         n_reps=n_reps,
         shots=shots,
         readout_noise=readout_noise,
+        noise_model=noise_model,
         iterations=iterations,
         samples_per_batch=samples_per_batch,
         num_batches=num_batches,
         seed=seed,
     )
-    result = run_sqd(cfg)
+    result = run_sqd(cfg, exact=exact, exact_cache=Path(results_dir) / "exact")
     path = save_sqd_result(result, results_dir)
     if result.status == "failed":
         console.print(f"[red]Run failed:[/red] {result.error_message}\nSaved to {path}")
@@ -161,13 +185,20 @@ def sqd(
     table.add_column("Metric")
     table.add_column("Value", justify="right")
     table.add_row("SQD energy (Ha)", f"{result.e_sqd:.6f}")
-    table.add_row("Exact FCI energy (Ha)", f"{result.e_exact:.6f}")
-    table.add_row("Hartree-Fock error (mHa)", f"{result.hf_error_mha:.3f}")
-    table.add_row("SQD error (mHa)", f"{result.abs_error_mha:.3f}")
-    table.add_row(
-        "Error per round (mHa)", ", ".join(f"{e:.2f}" for e in result.error_per_iteration_mha)
-    )
-    table.add_row("Chemical accuracy", "yes" if result.within_chemical_accuracy else "no")
+    table.add_row("Hartree-Fock energy (Ha)", f"{result.e_hf:.6f}")
+    table.add_row("CCSD energy (Ha)", f"{result.e_ccsd:.6f}")
+    table.add_row("SQD below Hartree-Fock (mHa)", f"{result.below_hf_mha:.3f}")
+    table.add_row("SQD below CCSD (mHa)", f"{result.below_ccsd_mha:.3f}")
+    if result.e_exact is not None:
+        table.add_row("Exact FCI energy (Ha)", f"{result.e_exact:.6f}")
+        table.add_row("Hartree-Fock error (mHa)", f"{result.hf_error_mha:.3f}")
+        table.add_row("SQD error (mHa)", f"{result.abs_error_mha:.3f}")
+        table.add_row(
+            "Error per round (mHa)", ", ".join(f"{e:.2f}" for e in result.error_per_iteration_mha)
+        )
+        table.add_row("Chemical accuracy", "yes" if result.within_chemical_accuracy else "no")
+    else:
+        table.add_row("Exact FCI energy", "not computed (add --exact to solve it once)")
     table.add_row("Distinct samples", str(result.n_distinct_samples))
     table.add_row("Right electron count", str(result.n_postselected))
     table.add_row(
@@ -181,7 +212,9 @@ def sqd(
 @app.command("sqd-hardware")
 def sqd_hardware(
     molecule: Annotated[Path, typer.Option(help="Molecule YAML, e.g. configs/sqd/n2.yaml")],
-    bond_length: Annotated[float, typer.Option(help="Bond length in Angstrom")] = 1.0977,
+    bond_length: Annotated[
+        float | None, typer.Option(help="Bond length in Angstrom (default: the file's own)")
+    ] = None,
     backend_name: Annotated[
         str | None, typer.Option(help="Device name; default least busy")
     ] = None,
@@ -208,9 +241,10 @@ def sqd_hardware(
     from miraichem.sqd.hardware import CONFIRM_PHRASE, collect, prepare_plan, submit
     from miraichem.sqd.storage import save_sqd_result
 
+    mol, bond = _load_sqd_molecule(molecule, bond_length)
     cfg = SqdConfig(
-        molecule=_load_molecule(molecule),
-        bond_length=bond_length,
+        molecule=mol,
+        bond_length=bond,
         n_reps=n_reps,
         shots=shots,
         iterations=iterations,

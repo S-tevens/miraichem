@@ -171,11 +171,21 @@ def api(tmp_path):
 def test_options_list_the_sqd_molecules(api):
     mols = api.get("/api/sqd/options").json()["molecules"]
     by_id = {m["id"]: m for m in mols}
-    assert set(by_id) == {"n2", "n2_631g", "n2_ccpvdz"} and by_id["n2"]["name"] == "N2"
+    assert set(by_id) == {
+        "n2",
+        "n2_631g",
+        "n2_631g_24q",
+        "n2_631g_28q",
+        "n2_ccpvdz",
+        "no",
+        "o2",
+    }
+    assert by_id["n2"]["name"] == "N2"
     # size decides what the app offers: small ones simulate, large ones are hardware-only
     assert by_id["n2"]["qubits"] == 20 and by_id["n2"]["simulable"] and by_id["n2"]["has_exact"]
-    assert by_id["n2_631g"]["qubits"] == 32 and not by_id["n2_631g"]["simulable"]
+    assert by_id["n2_631g"]["qubits"] == 32 and by_id["n2_631g"]["simulable"]  # about a minute
     assert by_id["n2_ccpvdz"]["qubits"] == 52 and not by_id["n2_ccpvdz"]["has_exact"]
+    assert not by_id["n2_ccpvdz"]["simulable"]  # 52 qubits: real hardware only
 
 
 def test_sqd_results_are_served_per_source_with_groups(api, n2, n2_problem, tmp_path):

@@ -25,6 +25,30 @@ def device_interaction_pairs(norb: int) -> tuple[list[tuple[int, int]], list[tup
     return [(i, i + 1) for i in range(norb - 1)], [(i, i) for i in range(0, norb, 4)]
 
 
+def lucj_operator(problem: SqdProblem, n_reps: int, interaction_pairs=None):
+    """The LUCJ operator built from the CCSD amplitudes; spin-unbalanced for open-shell molecules.
+
+    ``interaction_pairs`` is (same-spin pairs, opposite-spin pairs), as ``device_interaction_pairs``
+    returns it.
+    """
+    if problem.open_shell:
+        pairs = None
+        if interaction_pairs is not None:
+            same, opposite = interaction_pairs
+            pairs = (same, opposite, same)
+        return ffsim.UCJOpSpinUnbalanced.from_t_amplitudes(
+            problem.ccsd_t2, t1=problem.ccsd_t1, n_reps=n_reps, interaction_pairs=pairs
+        )
+    return ffsim.UCJOpSpinBalanced.from_t_amplitudes(
+        problem.ccsd_t2, t1=problem.ccsd_t1, n_reps=n_reps, interaction_pairs=interaction_pairs
+    )
+
+
+# The last state computed. The state does not depend on the seed, so a seed study on one molecule
+# builds it once (it is hundreds of megabytes for the 32-qubit molecule).
+_state_cache: dict[str, tuple] = {}
+
+
 def lucj_state(problem: SqdProblem, n_reps: int, interaction_pairs=None) -> np.ndarray:
     """Exact LUCJ state (initialised from active-space CCSD amplitudes) applied to Hartree-Fock."""
     dim = n_determinants(problem.norb, problem.nelec)
@@ -33,11 +57,15 @@ def lucj_state(problem: SqdProblem, n_reps: int, interaction_pairs=None) -> np.n
             f"Exact simulation needs {dim:,} determinants (limit {MAX_DETERMINANTS:,}); "
             "use a smaller active space or hardware sampling."
         )
-    op = ffsim.UCJOpSpinBalanced.from_t_amplitudes(
-        problem.ccsd_t2, t1=problem.ccsd_t1, n_reps=n_reps, interaction_pairs=interaction_pairs
-    )
+    key = (n_reps, repr(interaction_pairs))
+    hit = _state_cache.get("last")
+    if hit is not None and hit[0] is problem and hit[1] == key:
+        return hit[2]
+    op = lucj_operator(problem, n_reps, interaction_pairs)
     vec = ffsim.hartree_fock_state(problem.norb, problem.nelec)
-    return ffsim.apply_unitary(vec, op, norb=problem.norb, nelec=problem.nelec)
+    state = ffsim.apply_unitary(vec, op, norb=problem.norb, nelec=problem.nelec)
+    _state_cache["last"] = (problem, key, state)
+    return state
 
 
 def sample_lucj(
@@ -47,14 +75,21 @@ def sample_lucj(
     readout_noise: float,
     rng: np.random.Generator,
     interaction_pairs=None,
+    noise=None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Sample the LUCJ state, optionally flip bits at random, and return (matrix, probabilities)."""
+    """Sample the LUCJ state, add noise, and return (matrix, probabilities).
+
+    ``noise`` is a device model with an ``apply(bits, rng)`` method (see ``sqd.noise``); without
+    one, every bit is flipped independently with probability ``readout_noise``.
+    """
     state = lucj_state(problem, n_reps, interaction_pairs)
     strings = ffsim.sample_state_vector(
         state, norb=problem.norb, nelec=problem.nelec, shots=shots, seed=rng
     )
     bits = np.array([[c == "1" for c in s] for s in strings], dtype=bool)
-    if readout_noise > 0:
+    if noise is not None:
+        bits = noise.apply(bits, rng)
+    elif readout_noise > 0:
         bits ^= rng.random(bits.shape) < readout_noise
     return dedupe(bits)
 

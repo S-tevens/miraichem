@@ -1,0 +1,9 @@
+# O2 triplet (two unpaired electrons) in STO-3G, all 10 orbitals and 16 electrons: 20 qubits, 9 spin-up
+# and 7 spin-down electrons. The first open-shell molecule: it uses ROHF orbitals, an unrestricted
+# CCSD and the spin-unbalanced circuit. Equilibrium bond length ~1.208 A.
+name: O2
+bond_length: 1.208
+geometry: "O 0 0 0; O 0 0 {bond_length}"
+basis: sto3g
+charge: 0
+spin: 2

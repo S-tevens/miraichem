@@ -48,9 +48,11 @@ class MoleculeConfig(BaseModel):
 
     @field_validator("spin")
     @classmethod
-    def _closed_shell_only(cls, v: int) -> int:
-        if v != 0:
-            raise ValueError("Only closed-shell molecules (spin=0) are supported in the MVP.")
+    def _non_negative_spin(cls, v: int) -> int:
+        # Open-shell molecules (spin > 0) are supported by SQD only; the VQE Hamiltonian builder
+        # rejects them (see build_qubit_hamiltonian).
+        if v < 0:
+            raise ValueError("spin is the number of unpaired electrons and cannot be negative.")
         return v
 
     @model_validator(mode="after")

@@ -1,0 +1,10 @@
+# N2 in the 6-31G Gaussian basis, two 1s core orbitals frozen, 14 active orbitals and 10 electrons:
+# 28 qubits, about 4 million determinants. The exact energy takes about a minute, so every result is
+# checked against it. One of the points of the N2 scaling study (20, 24, 28 and 32 qubits).
+name: N2_631G_28q
+geometry: "N 0 0 0; N 0 0 {bond_length}"
+basis: 6-31g
+charge: 0
+spin: 0
+active_electrons: 10
+active_orbitals: 14

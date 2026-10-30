@@ -51,7 +51,12 @@ from miraichem.sqd.config import SqdConfig
 from miraichem.sqd.pipeline import diagonalise_samples, library_versions
 from miraichem.sqd.problem import SqdProblem, build_problem, n_determinants
 from miraichem.sqd.result import SqdResult
-from miraichem.sqd.sampler import MAX_DETERMINANTS, device_interaction_pairs, sample_lucj
+from miraichem.sqd.sampler import (
+    MAX_DETERMINANTS,
+    device_interaction_pairs,
+    lucj_operator,
+    sample_lucj,
+)
 from miraichem.vqe.runner import git_commit
 
 CONFIRM_PHRASE = "SUBMIT TO REAL HARDWARE"
@@ -68,16 +73,16 @@ FINAL_STATES = {"DONE", "CANCELLED", "ERROR"}
 
 def build_circuit(problem: SqdProblem, n_reps: int) -> QuantumCircuit:
     """LUCJ circuit on the Hartree-Fock state with device-friendly couplings, then measured."""
-    op = ffsim.UCJOpSpinBalanced.from_t_amplitudes(
-        problem.ccsd_t2,
-        t1=problem.ccsd_t1,
-        n_reps=n_reps,
-        interaction_pairs=device_interaction_pairs(problem.norb),
+    op = lucj_operator(problem, n_reps, device_interaction_pairs(problem.norb))
+    gate = (
+        ffsim.qiskit.UCJOpSpinUnbalancedJW
+        if problem.open_shell
+        else ffsim.qiskit.UCJOpSpinBalancedJW
     )
     qubits = QuantumRegister(2 * problem.norb)
     circuit = QuantumCircuit(qubits)
     circuit.append(ffsim.qiskit.PrepareHartreeFockJW(problem.norb, problem.nelec), qubits)
-    circuit.append(ffsim.qiskit.UCJOpSpinBalancedJW(op), qubits)
+    circuit.append(gate(op), qubits)
     circuit.measure_all()
     return circuit
 
@@ -88,6 +93,29 @@ def transpile_for(circuit: QuantumCircuit, device, optimization_level: int = 3, 
     )
     pm.pre_init = ffsim.qiskit.PRE_INIT
     return pm.run(circuit)
+
+
+# The transpiler's routing is randomised; the same circuit differs by several percent in two-qubit
+# gates between seeds, so the plan keeps the best of a few. (A hand-built zig-zag layout could save
+# more; not built yet. At 52 qubits a fully connected device would need about 20 to 25 percent
+# fewer gates than the heavy-hex device does, which bounds what a better layout can gain.)
+LAYOUT_TRIALS = 3
+
+
+def transpile_best(
+    circuit: QuantumCircuit,
+    device,
+    optimization_level: int = 3,
+    seed: int = 1,
+    trials: int = LAYOUT_TRIALS,
+):
+    """Transpile with several seeds and keep the circuit with the fewest two-qubit gates."""
+    best = None
+    for k in range(trials):
+        isa = transpile_for(circuit, device, optimization_level, seed + k)
+        if best is None or isa.num_nonlocal_gates() < best.num_nonlocal_gates():
+            best = isa
+    return best
 
 
 def circuit_stats(isa: QuantumCircuit, device) -> dict[str, Any]:
@@ -184,7 +212,7 @@ def prepare_plan(
     if service is None:
         service = get_service()
     device = resolve_backend(service, backend_name, problem.num_qubits)
-    isa = transpile_for(build_circuit(problem, cfg.n_reps), device, optimization_level, cfg.seed)
+    isa = transpile_best(build_circuit(problem, cfg.n_reps), device, optimization_level, cfg.seed)
     stats = circuit_stats(isa, device)
     est = estimate_qpu_seconds(cfg.shots, stats["duration_s"])
     remaining = remaining_qpu_seconds(service)

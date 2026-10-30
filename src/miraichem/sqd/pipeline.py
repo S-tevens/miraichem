@@ -12,6 +12,7 @@ import logging
 import time
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 import numpy as np
 from qiskit_addon_sqd.configuration_recovery import recover_configurations
@@ -21,7 +22,7 @@ from qiskit_addon_sqd.subsampling import postselect_by_hamming_right_and_left, s
 from miraichem.sqd.config import SqdConfig
 from miraichem.sqd.problem import SqdProblem, build_problem
 from miraichem.sqd.result import SqdResult
-from miraichem.sqd.sampler import n_determinants, sample_lucj
+from miraichem.sqd.sampler import device_interaction_pairs, n_determinants, sample_lucj
 from miraichem.vqe.runner import git_commit
 
 log = logging.getLogger(__name__)
@@ -40,8 +41,18 @@ def library_versions() -> dict[str, str]:
     return out
 
 
-def run_sqd(cfg: SqdConfig, problem: SqdProblem | None = None) -> SqdResult:
-    """Run SQD for one config and return the (never-raising) result record."""
+def run_sqd(
+    cfg: SqdConfig,
+    problem: SqdProblem | None = None,
+    *,
+    exact: bool | None = None,
+    exact_cache: Path | None = None,
+) -> SqdResult:
+    """Run SQD for one config and return the (never-raising) result record.
+
+    ``exact`` and ``exact_cache`` are passed to ``build_problem`` (see there); they only matter
+    when no ``problem`` is given.
+    """
     start = time.perf_counter()
     result = SqdResult(
         config=cfg,
@@ -51,10 +62,28 @@ def run_sqd(cfg: SqdConfig, problem: SqdProblem | None = None) -> SqdResult:
         timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
     )
     try:
-        problem = problem or build_problem(cfg.molecule, cfg.bond_length)
+        problem = problem or build_problem(
+            cfg.molecule, cfg.bond_length, exact=exact, cache_dir=exact_cache
+        )
         rng = np.random.default_rng(cfg.seed)
         t_sample = time.perf_counter()
-        matrix, probs = sample_lucj(problem, cfg.n_reps, cfg.shots, cfg.readout_noise, rng)
+        if cfg.noise_model:
+            # A device model also fixes the circuit: only the couplings that fit the device.
+            from miraichem.sqd.noise import device_noise
+
+            noise = device_noise(problem, cfg.n_reps, cfg.noise_model)
+            matrix, probs = sample_lucj(
+                problem,
+                cfg.n_reps,
+                cfg.shots,
+                0.0,
+                rng,
+                interaction_pairs=device_interaction_pairs(problem.norb),
+                noise=noise,
+            )
+            result.noise_summary = noise.summary()
+        else:
+            matrix, probs = sample_lucj(problem, cfg.n_reps, cfg.shots, cfg.readout_noise, rng)
         result.sampling_time_s = time.perf_counter() - t_sample
         _diagonalise(cfg, problem, matrix, probs, rng, result)
     except Exception as exc:  # noqa: BLE001 - one failed run must not stop a sweep
@@ -109,7 +138,10 @@ def _diagonalise(
             num_batches=cfg.num_batches,
             rand_seed=rng,
         )
-        solved = [solve_fermion(b, problem.hcore, problem.eri, open_shell=False) for b in batches]
+        solved = [
+            solve_fermion(b, problem.hcore, problem.eri, open_shell=problem.open_shell)
+            for b in batches
+        ]
         e, sci, occ, _ = min(solved, key=lambda s: s[0])
         avg = (np.asarray(occ[0]), np.asarray(occ[1]))
         total = float(e) + problem.core_energy

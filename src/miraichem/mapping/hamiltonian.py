@@ -44,6 +44,11 @@ def build_qubit_hamiltonian(
     cfg: MoleculeConfig, bond_length: float, mapping: Mapping = "jordan_wigner"
 ) -> QubitProblem:
     """Build the qubit Hamiltonian for ``cfg`` at ``bond_length`` (Angstrom)."""
+    if cfg.spin != 0:
+        raise ValueError(
+            f"{cfg.name} is open-shell (spin={cfg.spin}); the VQE pipeline supports only "
+            "closed-shell molecules. Open-shell molecules are available in SQD."
+        )
     mol = build_mole(cfg, bond_length)
     driver = PySCFDriver(
         atom=cfg.atom_string(bond_length),

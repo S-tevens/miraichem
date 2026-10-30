@@ -47,3 +47,5 @@ class SqdResult(BaseModel):
     timestamp: str | None = None
     # Set only for real-device runs: backend, job id, circuit size, estimated and actual QPU time.
     hardware: dict[str, Any] | None = None
+    # Set when a device-calibrated noise model drove the simulated sampling (see sqd.noise).
+    noise_summary: dict[str, Any] | None = None

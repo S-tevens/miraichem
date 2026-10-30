@@ -27,9 +27,18 @@ def test_active_space_validation(h2):
     with pytest.raises(ValidationError):
         type(h2)(**data)  # active_orbitals missing
     data = h2.model_dump()
-    data["spin"] = 2
+    data["spin"] = -2
     with pytest.raises(ValidationError):
         type(h2)(**data)
+
+
+def test_open_shell_is_accepted_by_the_config_but_not_by_vqe(h2):
+    from miraichem.mapping.hamiltonian import build_qubit_hamiltonian
+
+    cfg = type(h2)(**{**h2.model_dump(), "spin": 2})
+    assert cfg.spin == 2
+    with pytest.raises(ValueError, match="open-shell"):
+        build_qubit_hamiltonian(cfg, 0.735)
 
 
 def test_sweep_expansion_skips_invalid_and_excluded(h2):

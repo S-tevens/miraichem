@@ -11,8 +11,13 @@ import yaml
 
 from miraichem.chemistry.active_space import resolve_active_space
 from miraichem.chemistry.molecule import build_mole
-from miraichem.config import MoleculeConfig
-from miraichem.sqd.problem import FCI_MAX_DETERMINANTS, n_determinants
+from miraichem.sqd.config import load_sqd_yaml
+from miraichem.sqd.problem import (
+    FCI_MAX_DETERMINANTS,
+    exact_cache_key,
+    load_cached_exact,
+    n_determinants,
+)
 from miraichem.sqd.result import SqdResult
 from miraichem.sqd.storage import load_sqd_results
 
@@ -27,6 +32,7 @@ GROUP_FIELDS = (
     "iterations",
     "samples_per_batch",
     "num_batches",
+    "noise_model",
 )
 
 
@@ -41,6 +47,9 @@ def sqd_row(r: SqdResult) -> dict[str, Any]:
         "n_reps": c.n_reps,
         "shots": c.shots,
         "readout_noise": c.readout_noise,
+        "noise_model": c.noise_model,
+        "noise_summary": r.noise_summary,
+        "spin": c.molecule.spin,
         "iterations": c.iterations,
         "samples_per_batch": c.samples_per_batch,
         "num_batches": c.num_batches,
@@ -79,14 +88,14 @@ def sqd_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for row in rows:
         if row["status"] != "ok" or row["error_mha"] is None or row.get("hardware"):
             continue
-        buckets.setdefault(tuple(row[f] for f in GROUP_FIELDS), []).append(row)
+        buckets.setdefault(tuple(row.get(f) for f in GROUP_FIELDS), []).append(row)
     groups = []
     for members in buckets.values():
         errs = np.array([m["error_mha"] for m in members], dtype=float)
         first = members[0]
         groups.append(
             {
-                **{f: first[f] for f in GROUP_FIELDS},
+                **{f: first.get(f) for f in GROUP_FIELDS},
                 "qubits": first["qubits"],
                 "n_seeds": len(members),
                 "mean_error_mha": float(errs.mean()),
@@ -117,25 +126,34 @@ def load_rows(root: Path) -> list[dict[str, Any]]:
 
 # Simulating the sampling holds a state vector over every determinant; above this the app only
 # offers the real-hardware route (the library itself can simulate up to MAX_DETERMINANTS).
-UI_SIMULATE_MAX_DETERMINANTS = 2_000_000
+UI_SIMULATE_MAX_DETERMINANTS = (
+    25_000_000  # N2 in 6-31G (19 million, 32 qubits) runs in about a minute
+)
 
 
 @lru_cache(maxsize=16)
 def _size(yaml_text: str) -> tuple[int, int, int]:
     """(orbitals, alpha electrons, determinants) of the active space, without running SCF."""
-    cfg = MoleculeConfig(**yaml.safe_load(yaml_text))
-    mol = build_mole(cfg, 1.0)
+    cfg, bond = load_sqd_yaml(yaml_text)
+    mol = build_mole(cfg, bond)
     space = resolve_active_space(cfg, mol)
     norb = mol.nao if space is None else space.num_orbitals
     nelec = mol.nelectron if space is None else space.num_electrons
-    return norb, nelec // 2, n_determinants(norb, (nelec // 2, nelec // 2))
+    n_alpha, n_beta = (nelec + cfg.spin) // 2, (nelec - cfg.spin) // 2
+    return norb, n_alpha, n_determinants(norb, (n_alpha, n_beta))
 
 
-def sqd_molecules(configs_dir: Path) -> list[dict[str, Any]]:
+# Measured: N2 in 6-31G, 19 million determinants, took 382 to 530 s for the exact solve.
+FCI_SECONDS_PER_DETERMINANT = 2.5e-5
+
+
+def sqd_molecules(configs_dir: Path, exact_dir: Path | None = None) -> list[dict[str, Any]]:
     out = []
     for p in sorted((Path(configs_dir) / "sqd").glob("*.yaml")):
         text = p.read_text()
         data = yaml.safe_load(text)
+        mol_cfg, default_bond = load_sqd_yaml(text)
+        cached = load_cached_exact(exact_dir, exact_cache_key(mol_cfg, default_bond))
         note = " ".join(x.lstrip("#").strip() for x in text.splitlines() if x.startswith("#"))
         norb, nalpha, dets = _size(text)
         out.append(
@@ -143,11 +161,15 @@ def sqd_molecules(configs_dir: Path) -> list[dict[str, Any]]:
                 "id": p.stem,
                 "name": data["name"],
                 "basis": data.get("basis", "sto3g"),
+                "spin": mol_cfg.spin,
+                "default_bond_length": default_bond,
                 "description": note,
                 "qubits": 2 * norb,
                 "determinants": dets,
                 "simulable": dets <= UI_SIMULATE_MAX_DETERMINANTS,
-                "has_exact": dets <= FCI_MAX_DETERMINANTS,
+                "has_exact": dets <= FCI_MAX_DETERMINANTS or cached is not None,
+                "exact_cached": cached is not None,
+                "exact_estimate_s": 0.0 if cached else dets * FCI_SECONDS_PER_DETERMINANT,
             }
         )
     return out
