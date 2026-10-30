@@ -81,3 +81,10 @@ body.has-expanded::before {
 .is-expanded svg text {
   paint-order: stroke;
 }
+
+/* A chart enlarged inside the run drawer: the drawer is its own stacking layer (z-index 41), which
+   would keep the sheet underneath the backdrop. Lift the whole drawer above the backdrop meanwhile. */
+.drawer:has(.is-expanded) {
+  z-index: 200;
+  animation: none;
+}
