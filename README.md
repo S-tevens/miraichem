@@ -61,6 +61,7 @@ MiraiChem takes a molecule and does the following:
 8. **Predicts a configuration's error before you run it**, with an interval that has been checked on
    configurations the model never saw.
 9. Shows everything in a web app that browses saved results and can launch simulator runs and sweeps.
+10. **Gives a trust report** for each recommendation: what was checked and a verdict by fixed, visible rules.
 
 **What is new is the engineering, not the chemistry.** We do not claim a new chemistry method or a
 quantum advantage (H2 and LiH are trivial for classical computers). The contribution is a
@@ -77,6 +78,13 @@ reproducible, configurable, cost-aware benchmark with these distinguishing featu
   mitigation and gate-folding ZNE meaningful.
 - **Simulator checked against hardware.** The recommended configurations were evaluated on a real
   IBM device, so the simulator's predictions are tested instead of assumed.
+- **Trust report.** For each recommendation: how many seeds, how often it reached chemical accuracy,
+  whether other devices and the error forecast agree, whether a real device was tried and, for SQD, the
+  control experiments below. The verdict (trusted, partly, not yet, not enough evidence) follows rules the
+  page prints, and it is often "not yet": most noisy H2 setups do not reach chemical accuracy reliably.
+- **Controls that test the quantum step.** For SQD we compare the circuit's subspace with random and
+  classical subspaces of the same size and run the loop with the circuit replaced, and report the results
+  whichever way they fall.
 - **Reproducibility.** Every run has a config hash, a seed, library versions and the git commit,
   and finished runs are cached, so sweeps can be stopped and resumed.
 
@@ -114,7 +122,12 @@ flowchart LR
 | `vqe/` | The VQE loop, per-run failure capture and the saved `RunResult` record |
 | `benchmark/` | Sweep engine, metrics, ranking, scan ranking, storage, report generation |
 | `analysis/` | Dissociation curves (matplotlib and plotly) |
-| `cli.py`, `api/`, `frontend/` | Command-line interface, the web API (`miraichem serve`) and the web app |
+| `predict/` | The error predictor: forecasts a noisy run's error with an interval, checked on unseen configurations and devices |
+| `sqd/` | Sample-based quantum diagonalization: the problem and classical references, the sampler (circuit, device noise model, control samplers), the recover-and-solve loop, the controls, and the hardware path |
+| `cli.py`, `api/`, `frontend/` | Command-line interface, the web API (`miraichem serve`, including the SQD results and the trust report) and the web app |
+
+The diagram above is the VQE pipeline. The SQD engine, the controls, the trust report and the hardware gates
+are drawn in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (section 1.1 is the whole system).
 
 Design decisions and alternatives we rejected are recorded in
 [docs/DECISIONS.md](docs/DECISIONS.md). A generated summary of every result is in
@@ -227,10 +240,15 @@ runs, and these pages:
 - **New run and Sweeps:** configure a single VQE run, or start one of the prepared sweeps, on the ideal or
   noisy simulator, with live progress. Results are saved like CLI runs. Invalid combinations (for example
   L-BFGS-B on a noisy backend) are explained before you run.
+- **Trust report:** the evidence behind each recommendation and a verdict (see above). A link opens it from
+  the Overview and the Leaderboard.
+- **SQD, larger molecules:** the SQD results, a 3D molecule and orbital viewer, the stretched-bond study, the
+  control experiments, the scaling study and a real-device panel. Every chart has an enlarge button.
 - **Jobs and How it works.**
 
-The app never starts real quantum hardware: that keeps its opt-in flag, cost estimate and confirmation in the
-command line. The server listens on this computer only unless you pass `--allow-remote`.
+VQE runs on real hardware stay in the command line (opt-in flag, cost estimate, confirmation). SQD on real
+hardware can be started from the SQD page after a plan and an "are you sure" step; `--no-allow-hardware`
+switches it off. The server listens on this computer only unless you pass `--allow-remote`.
 
 ```bash
 # build the interface once (Node 18 or newer), then start the app and open http://localhost:8000
@@ -420,11 +438,98 @@ How to read this honestly:
   samples are so spread out that the subspace covers all 14,400 determinants and SQD becomes exact
   diagonalisation: that size cannot test noise robustness. At 24, 28 and 32 qubits it gives about 5,
   20 to 24, and 42 to 51 mHa, worse than the uniform bit flips at the larger sizes.
-- Everything in this table is simulated sampling. One real-hardware run exists: N2 (20 qubits) on `ibm_fez`,
-  IBM job `dbibe2o1h92s73834cvg`, 5.0 s of QPU time, error 0.057 mHa against the exact energy. The device
-  noise spread the samples so widely that the subspace covered 9,801 of 14,400 configurations (68%), so
-  this is close to exact diagonalisation. It shows the hardware path works end to end; it is one run and
-  is not evidence of noise robustness, of scaling, or of an advantage over classical methods.
+- Everything above is simulated sampling. Four real-hardware SQD runs are published (the SQD page shows each
+  next to an ideal simulation of the same circuit):
+
+  | IBM job | Device | Qubits | Error vs exact | Space solved | Ideal circuit (same gates) |
+  |---|---|---|---|---|---|
+  | `dbibe2o1h92s73834cvg` | `ibm_fez` | 20 | 0.057 mHa | 68% | 45.9 mHa, 15 distinct bitstrings |
+  | `dbidbb6ne4hc73bebir0` | `ibm_fez` | 20 | 0.0022 mHa | 77% | 54.1 mHa, 12 distinct bitstrings |
+  | `dbide1ene4hc73beboog` | `ibm_kingston` | 20 | 0.0011 mHa | 72% | 54.1 mHa, 12 distinct bitstrings |
+  | `dbiefoo1h92s7383a180` | `ibm_fez` | 52 (N2, cc-pVDZ) | no exact energy | 0.0065% | cannot be simulated |
+
+  Each 20-qubit run used about 5 s of QPU time. The device's noise spread the samples over thousands of
+  bitstrings (the ideal circuit gives 12 to 15), so each solve covered most of the 14,400 determinants and
+  was close to exact diagonalisation: these runs show the hardware path works end to end, not that SQD
+  tolerates noise at scale or beats classical methods. The 52-qubit run (1,948 two-qubit gates) returned
+  10,000 distinct bitstrings from 10,000 shots, which is noise; its energy is 169.5 mHa below
+  Hartree-Fock and 139.8 mHa above the CCSD energy. It shows a 52-qubit job runs end to end, nothing more.
+  A planned real run at a stretched bond (N2 at 2.0 A, 258 two-qubit gates, about 8 s of QPU time) has not
+  been run.
+
+#### Stretched bonds: where coupled cluster breaks down
+
+N2 has a triple bond, the textbook case where CCSD fails as the atoms move apart. The same SQD setting
+is run at every distance (noise 0.02, 3 rounds, 300 samples per batch, 5 seeds; the equilibrium row
+is the 10-seed study) with `scripts/run_sqd_stretch.py`, and every point is checked against the exact
+energy. Mean error in mHa; the last column is the share of the full space the one-layer solve covers.
+
+20 qubits (N2, STO-3G, 14,400 determinants):
+
+| Bond (A) | Hartree-Fock | CCSD | SQD, 1 layer | SQD, 2 layers | Space solved |
+|---|---|---|---|---|---|
+| 1.0977 | 157 | 3.9 | 2.45 ± 0.83 | 0.72 ± 0.16 | 12% |
+| 1.25 | 207 | 7.1 | 1.59 ± 0.38 | 0.75 ± 0.18 | 14% |
+| 1.5 | 309 | 13.8 | 1.78 ± 0.35 | 0.96 ± 0.22 | 20% |
+| 1.75 | 438 | 5.7 | 1.52 ± 0.09 | 0.84 ± 0.15 | 24% |
+| 2.0 | 584 | 101.8 | 1.41 ± 0.33 | 1.03 ± 0.30 | 27% |
+| 2.25 | 718 | 281.5 | 4.37 ± 1.13 | 3.25 ± 0.69 | 19% |
+| 2.5 | 823 | 287.7 | 3.08 ± 0.72 | 2.47 ± 0.37 | 16% |
+
+24 qubits (N2, 6-31G, 12 active orbitals, 627,264 determinants, about 1% solved):
+
+| Bond (A) | Hartree-Fock | CCSD | SQD, 1 layer | SQD, 2 layers |
+|---|---|---|---|---|
+| 1.0977 | 132 | 3.0 | 10.1 ± 0.5 | 8.3 ± 0.3 |
+| 1.25 | 177 | 5.7 | 10.5 ± 0.6 | 7.9 ± 0.2 |
+| 1.5 | 290 | 17.2 | 12.7 ± 0.4 | 11.2 ± 0.6 |
+| 1.75 | 382 | 21.6 | 16.5 ± 0.8 | 15.5 ± 0.5 |
+| 2.0 | 484 | 32.0 | 19.6 ± 0.8 | 21.4 ± 1.4 |
+| 2.25 | 583 | 228.4 | 83.7 ± 5.9 | 52.9 ± 15.2 |
+| 2.5 | 668 | 328.1 | 34.0 ± 2.7 | 28.7 ± 1.1 |
+
+Reading it honestly:
+
+- At 20 qubits SQD is closer to the exact energy than CCSD at all seven distances, and stays within a few
+  mHa where CCSD is off by 100 to 290 mHa (2.0 to 2.5 A). But the solve covers 12% to 27% of a small
+  space, so this shows the method working against an exact reference, not how it behaves on a molecule
+  too large to solve exactly.
+- At 24 qubits SQD is worse than CCSD up to 1.5 A and better from 1.75 A, but it never reaches chemical
+  accuracy (the best point is 7.9 mHa), at about 1% of the space.
+- All of this is simulated sampling.
+
+#### Control experiments: what does the circuit add?
+
+SQD's quantum step only chooses which determinants to solve in. `scripts/run_sqd_controls.py` tests
+that choice two ways (N2, 5 seeds, errors in mHa against the exact energy).
+
+*Same size, fair test.* Subspaces with as many strings per spin as the circuit run found, chosen without
+a circuit: random strings, the lowest excitations from Hartree-Fock, and an oracle that keeps the strings
+with the most weight in the exact ground state (a bound; it needs the exact answer).
+
+| Qubits | Strings per spin | SQD, circuit | Random | Low excitation | Oracle |
+|---|---|---|---|---|---|
+| 20 | 41 | 2.7 | 106 | 18.0 | 0.68 |
+| 24 | 58 | 10.1 | 125 | 19.2 | 5.0 |
+| 28 | 78 | 14.1 | 169 | 26.9 | 7.3 |
+
+At the same size the circuit's subspace is far better than a random one and better than a classical
+low-excitation one, and at 24 and 28 qubits it is within about 2 times of the best possible.
+
+*The whole loop with the circuit replaced.* Same recovery, post-selection and solve, but the bitstrings
+come from a noisy Hartree-Fock state (`--sampler hf_noise`) or from random bits (`uniform`).
+
+| Qubits | Circuit (space solved) | Noisy HF state | Random bits |
+|---|---|---|---|
+| 20 | 2.7 (12%) | 22.5 (3.5%) | 0.00 (99.7%) |
+| 24 | 10.1 (1%) | 21.8 (0.2%) | 6.2 ± 4.2 (20.6%) |
+| 28 | 14.1 (0.15%) | 29.5 (0.1%) | 19.1 ± 2.2 (4.9%) |
+
+A noisy Hartree-Fock state is worse everywhere, so the circuit adds something over noise alone. Random
+bits do better than the circuit at 20 and 24 qubits, mainly because they end up solving a much larger
+share of those small spaces (later rounds repair bitstrings using the previous round's solution, so the
+loop can improve even from uninformative samples); at 28 qubits the circuit is better. This row is not an
+equal-size comparison, which is why both tests are reported. Everything is simulated sampling.
 
 **SQD on real hardware** uses the same safeguards as the VQE hardware path, in the app and in the
 command line. A plan comes first (no QPU time, it shows the estimate), and nothing is sent until you
@@ -630,12 +735,14 @@ beats that.
   the 20-qubit N2 reaches chemical accuracy; larger sizes are worse than CCSD. The sampling noise is
   either uniform bit flips or an approximate device model (readout errors plus a depolarising term
   from the gate count), not a gate-by-gate simulation. The 52-qubit case has no exact reference and
-  has never been run. Iron-sulfur clusters are not computed.
+  ran once on hardware and returned noise (see above). Iron-sulfur clusters are not computed. The control
+  experiments and the stretched-bond study use simulated sampling and N2 only, so they say nothing
+  about other molecules or about a real device at scale.
 - **Platform.** Linux, macOS or WSL2; native Windows is not supported (PySCF).
 
 ## 9. Roadmap
 
-- **SQD on real hardware at 40 to 80 qubits** (N2 in cc-pVDZ is 52 qubits): the plan, estimate and gates are built and tested with a simulated device; the next step is a first real run within the free-plan QPU budget, repeated for error bars.
+- **SQD on real hardware:** three 20-qubit runs and one 52-qubit run are done and published. Next: a real run at a stretched bond (planned, not run), and repeats for error bars. The 52-qubit result was noise, so a useful run at that size needs fewer gates or a better layout.
 - Larger active spaces for SQD: iron-sulfur clusters (for example FeS4, [2Fe-2S] and [4Fe-4S], shown in 3D as idealised shapes only), which needs their geometries and active-space integrals from the literature and has no classical reference at that size.
 - Understand why SQD loses accuracy as the molecule grows (more samples per batch did not close the gap) and why a second circuit layer hurts NO; more open-shell systems beyond O2 and NO.
 - A gate-level device-noise simulation for SQD sampling (the current model is an approximation), a hand-built zig-zag qubit layout for the hardware circuit, and extending the error predictor to SQD.
