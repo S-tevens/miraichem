@@ -1,0 +1,69 @@
+{
+  "config": {
+    "molecule": {
+      "name": "NO",
+      "geometry": "N 0 0 0; O 0 0 {bond_length}",
+      "basis": "sto3g",
+      "charge": 0,
+      "spin": 1,
+      "active_electrons": null,
+      "active_orbitals": null,
+      "freeze_core": false
+    },
+    "bond_length": 1.151,
+    "n_reps": 1,
+    "shots": 20000,
+    "readout_noise": 0.02,
+    "iterations": 3,
+    "samples_per_batch": 300,
+    "num_batches": 3,
+    "seed": 8,
+    "noise_model": null
+  },
+  "config_hash": "e1c39111680c",
+  "status": "ok",
+  "error_message": null,
+  "e_sqd": -127.6553754372199,
+  "e_hf": -127.52611118331907,
+  "e_exact": -127.6594369658174,
+  "e_ccsd": -127.6544354808316,
+  "abs_error_mha": 4.061528597503639,
+  "hf_error_mha": 133.32578249833205,
+  "ccsd_error_mha": 5.001484985811544,
+  "below_hf_mha": 129.2642539008284,
+  "below_ccsd_mha": 0.9399563883079054,
+  "within_chemical_accuracy": false,
+  "num_qubits": 20,
+  "n_determinants": 5400,
+  "n_distinct_samples": 414,
+  "n_postselected": 65,
+  "subspace_dim": 580,
+  "subspace_fraction": 0.10740740740740741,
+  "error_per_iteration_mha": [
+    4.061528597503639,
+    4.067002935926212,
+    4.2797851598948
+  ],
+  "energy_per_iteration": [
+    -127.6553754372199,
+    -127.65536996288148,
+    -127.65515718065751
+  ],
+  "wall_time_s": 0.9670004029994743,
+  "sampling_time_s": 0.15023761999964336,
+  "diagonalisation_time_s": 0.7332174610000948,
+  "fci_time_s": 0.6059465320004165,
+  "ccsd_time_s": 0.37562099899969326,
+  "library_versions": {
+    "qiskit": "2.5.2",
+    "qiskit-addon-sqd": "0.14.0",
+    "ffsim": "0.0.85",
+    "pyscf": "2.14.0",
+    "numpy": "2.2.6",
+    "scipy": "1.17.1"
+  },
+  "git_commit": "53d0c3b",
+  "timestamp": "2026-10-30T12:34:53+00:00",
+  "hardware": null,
+  "noise_summary": null
+}
