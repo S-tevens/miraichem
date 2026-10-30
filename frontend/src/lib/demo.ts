@@ -10,6 +10,7 @@ const PARAMS: Record<string, string[]> = {
   "/api/rank": ["molecule", "backend", "bond_length"],
   "/api/scan": ["molecule", "backend"],
   "/api/replicated/recommendation": ["molecule", "backend", "device"],
+  "/api/trust": ["kind", "molecule", "backend", "device"],
 };
 
 function number(v: string): string {

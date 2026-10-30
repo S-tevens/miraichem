@@ -105,9 +105,17 @@ export function OverviewPage({ go }: { go: (r: Route) => void }) {
                           {c.n_chem}/{c.n_seeds} seeds within 1.6 mHa
                         </span>
                       </div>
-                      <button type="button" className="btn btn--ghost btn--small" onClick={() => go("reliability")}>
-                        See the evidence
-                      </button>
+                      <div className="chips">
+                        <button type="button" className="btn btn--ghost btn--small" onClick={() => go("reliability")}>
+                          See the evidence
+                        </button>
+                        <a
+                          className="btn btn--ghost btn--small"
+                          href={`#/trust?kind=vqe&molecule=${encodeURIComponent(s.molecule)}&backend=${s.backend}&device=${encodeURIComponent(s.device)}`}
+                        >
+                          Trust report
+                        </a>
+                      </div>
                     </div>
                   </Panel>
                 );

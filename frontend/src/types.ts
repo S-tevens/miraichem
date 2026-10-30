@@ -558,3 +558,35 @@ export interface SqdHardwarePlan {
   expired: boolean;
   submitted: boolean;
 }
+
+// ---- trust report
+
+export type TrustStatus = "pass" | "warn" | "fail" | "none";
+export type TrustVerdict = "trusted" | "partly" | "not_yet" | "no_evidence";
+
+export interface TrustItem {
+  id: string;
+  title: string;
+  status: TrustStatus;
+  detail: string;
+  route: string | null;
+}
+
+export interface TrustReport {
+  kind: "vqe" | "sqd";
+  subject: { molecule: string; backend?: string; device?: string; bond_length: number | null; label: string | null };
+  verdict: TrustVerdict;
+  verdict_text: string;
+  sentence: string;
+  evidence: TrustItem[];
+  rules: string[];
+}
+
+export interface TrustSubject {
+  kind: "vqe" | "sqd";
+  molecule: string;
+  backend: string;
+  device: string;
+  bond_length?: number;
+  label?: string;
+}

@@ -1,0 +1,119 @@
+.trust__verdict {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-card);
+  background: var(--panel);
+}
+
+.trust__verdict--trusted {
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.trust__verdict--partly {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+.trust__verdict--not_yet {
+  border-color: color-mix(in srgb, var(--bad) 55%, transparent);
+}
+
+.trust__label {
+  font-size: 1.7rem;
+  font-weight: 250;
+  letter-spacing: -0.015em;
+}
+
+.trust__setup {
+  font-size: 0.9rem;
+  color: var(--fg-2);
+}
+
+.trust__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.trust__row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trust__row:last-child {
+  border-bottom: 0;
+}
+
+.trust__mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.trust__mark--pass {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.trust__mark--warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+.trust__mark--fail {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 55%, transparent);
+}
+.trust__mark--none {
+  color: var(--fg-3, var(--fg-2));
+}
+
+.trust__title {
+  font-size: 0.95rem;
+}
+
+.trust__detail {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--fg-2);
+  max-width: 78ch;
+}
+
+.trust__rules {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  max-width: 78ch;
+}
+
+@media print {
+  .side,
+  .demo-banner,
+  .no-print,
+  .page-head__tools {
+    display: none !important;
+  }
+  .app {
+    display: block;
+  }
+  body,
+  .panel,
+  .trust__verdict {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .trust__detail,
+  .trust__setup,
+  .small {
+    color: #333 !important;
+  }
+}

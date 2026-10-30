@@ -27,6 +27,7 @@ _PARAMS: dict[str, tuple[str, ...]] = {
     "/api/rank": ("molecule", "backend", "bond_length"),
     "/api/scan": ("molecule", "backend"),
     "/api/replicated/recommendation": ("molecule", "backend", "device"),
+    "/api/trust": ("kind", "molecule", "backend", "device"),
 }
 
 
@@ -87,8 +88,15 @@ def export_demo(
         "/api/sqd",
         "/api/sqd/options",
         "/api/structures",
+        "/api/trust/index",
     ):
         save(path)
+
+    for subject in api.get("/api/trust/index", params={"source": "published"}).json()["subjects"]:
+        save(
+            "/api/trust",
+            {k: subject[k] for k in ("kind", "molecule", "backend", "device")},
+        )
 
     overview = api.get("/api/overview", params={"source": "published"}).json()
     for molecule, backends in overview["by_molecule"].items():

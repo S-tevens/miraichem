@@ -274,6 +274,12 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="M6.2 7l4.4 3.6M17.8 7l-4.4 3.6M6.2 17l4.4-3.6M17.8 17l-4.4-3.6" {...P} />
     </>
   ),
+  trust: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.500-7-10V6l7-3z" {...P} />
+      <path d="M9 12l2 2 4-4" {...P} />
+    </>
+  ),
   "new-run": <path d="M7 4l12 8-12 8V4z" {...P} />,
   sweeps: (
     <>

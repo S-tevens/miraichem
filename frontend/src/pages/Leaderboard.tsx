@@ -153,7 +153,8 @@ export function LeaderboardPage() {
             >
               <p className="rec-text">{data.justification}</p>
               <p className="small faint" style={{ marginTop: 10 }}>
-                This ranks single runs. For a recommendation that accounts for random-seed luck, see Seed reliability.
+                This ranks single runs. For a recommendation that accounts for random-seed luck, see Seed reliability, or open its{" "}
+                <a href={`#/trust?kind=vqe&molecule=${encodeURIComponent(molecule)}&backend=${backend}`}>trust report</a>.
               </p>
             </Panel>
           </div>

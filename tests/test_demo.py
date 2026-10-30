@@ -41,6 +41,17 @@ KEY_EXAMPLES = [
         {"molecule": "H2", "backend": "noisy", "device": "FakeFez", "reliability": "0.5"},
         "_api_replicated_recommendation_backend=noisy_device=FakeFez_molecule=H2.json",
     ),
+    ("/api/trust/index", {"source": "published"}, "_api_trust_index.json"),
+    (
+        "/api/trust",
+        {"kind": "vqe", "molecule": "H2", "backend": "noisy", "device": "FakeFez", "n": "2"},
+        "_api_trust_backend=noisy_device=FakeFez_kind=vqe_molecule=H2.json",
+    ),
+    (
+        "/api/trust",
+        {"kind": "vqe", "molecule": "LiH", "backend": "ideal", "device": ""},
+        "_api_trust_backend=ideal_kind=vqe_molecule=LiH.json",
+    ),
 ]
 
 
@@ -73,6 +84,7 @@ def test_export_writes_every_view_the_app_asks_for(tmp_path):
         "_api_sqd.json",
         "_api_sqd_options.json",
         "_api_structures.json",
+        "_api_trust_index.json",
         "_api_rank_backend=noisy_molecule=H2.json",
     ):
         assert (out / name).is_file(), name
@@ -83,3 +95,9 @@ def test_export_writes_every_view_the_app_asks_for(tmp_path):
     # a run opened from a leaderboard row exists in the snapshot
     rank = json.loads((out / "_api_rank_backend=noisy_molecule=H2.json").read_text())
     assert (out / "runs" / f"{rank['best_hash']}.json").is_file()
+    # every trust report the page can ask for is in the snapshot
+    subjects = json.loads((out / "_api_trust_index.json").read_text())["subjects"]
+    assert subjects
+    for subject in subjects:
+        query = {k: subject[k] for k in ("kind", "molecule", "backend", "device")}
+        assert (out / demo_key("/api/trust", query)).is_file(), query

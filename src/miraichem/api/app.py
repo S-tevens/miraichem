@@ -30,6 +30,7 @@ from miraichem.api.sqd import (
     sqd_groups,
     sqd_molecules,
 )
+from miraichem.api.trust import sqd_trust, vqe_trust
 from miraichem.api.views import clean, recommendation_json
 from miraichem.backends.hardware import get_service
 from miraichem.benchmark.ranking import Weights, recommend
@@ -669,6 +670,89 @@ def create_app(
     def hardware(source: str | None = None):
         s = _source(ws, source)
         return {"source": s, "results": ws.hardware(s)}
+
+    # ---- the trust report: the evidence behind a recommendation, and a verdict
+
+    def forecast_for(study: dict, config: dict) -> dict | None:
+        """The error predictor's forecast for a study's recommended configuration, if it can."""
+        if study["backend"] != "noisy":
+            return None
+        model, _ = current_model()
+        if model is None:
+            return None
+        try:
+            req = RunRequest(
+                molecule=study["molecule"].lower(),
+                bond_length=config["bond_length"],
+                mapping=config["mapping"],
+                ansatz=config["ansatz"],
+                ansatz_reps=config["reps"],
+                optimizer=config["optimizer"],
+                maxiter=config["maxiter"],
+                backend="noisy",
+                fake_backend_name=config["device"],
+                shots=config["shots"],
+                mitigation=config["mitigation"],
+            )
+            return model.predict(shape_for_config(_run_config(ws, req))).as_dict()
+        except Exception:  # noqa: BLE001 - a forecast that cannot be made is just "no data"
+            return None
+
+    @app.get("/api/trust/index")
+    def trust_index(source: str | None = None):
+        s = _source(ws, source)
+        subjects = [
+            {
+                "kind": "vqe",
+                "molecule": st["molecule"],
+                "backend": st["backend"],
+                "device": st["device"],
+                "bond_length": st["bond_length"],
+                "label": st["recommendation"]["label"],
+            }
+            for st in ws.studies(s)
+            if st.get("recommendation")
+        ]
+        sqd_rows = load_rows(ws.path(s))
+        for name in sorted({g["molecule"] for g in sqd_groups(sqd_rows)}):
+            subjects.append({"kind": "sqd", "molecule": name, "backend": "", "device": ""})
+        return clean({"source": s, "subjects": subjects})
+
+    @app.get("/api/trust")
+    def trust(
+        kind: Literal["vqe", "sqd"] = "vqe",
+        molecule: str = "",
+        backend: str = "noisy",
+        device: str | None = None,
+        source: str | None = None,
+    ):
+        s = _source(ws, source)
+        if kind == "sqd":
+            rows = load_rows(ws.path(s))
+            report = sqd_trust(
+                molecule,
+                sqd_groups(rows),
+                rows,
+                load_controls(ws.path(s)),
+                sqd_default_bonds(configs_dir),
+            )
+            return clean(report)
+        study = next(
+            (
+                st
+                for st in ws.studies(s)
+                if st["molecule"].lower() == molecule.lower()
+                and st["backend"] == backend
+                and st["device"] == (device or "")
+            ),
+            None,
+        )
+        if study is None:
+            raise HTTPException(404, f"No seed study for {molecule} on {backend} {device or ''}.")
+        rec = study.get("recommendation")
+        config = next((c for c in study["configs"] if rec and c["label"] == rec["label"]), None)
+        forecast = forecast_for(study, config) if config else None
+        return clean(vqe_trust(study, ws.devices(s), ws.hardware(s), forecast))
 
     @app.get("/api/curves")
     def curves(source: str | None = None):

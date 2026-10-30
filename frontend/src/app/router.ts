@@ -4,6 +4,7 @@ export type Route =
   | "overview"
   | "leaderboard"
   | "reliability"
+  | "trust"
   | "devices"
   | "curves"
   | "hardware"
@@ -18,6 +19,7 @@ export const ROUTES: Route[] = [
   "overview",
   "leaderboard",
   "reliability",
+  "trust",
   "devices",
   "curves",
   "hardware",
@@ -30,7 +32,7 @@ export const ROUTES: Route[] = [
 ];
 
 function read(): Route {
-  const h = window.location.hash.replace(/^#\/?/, "") as Route;
+  const h = window.location.hash.replace(/^#\/?/, "").split("?")[0] as Route;
   return ROUTES.includes(h) ? h : "overview";
 }
 

@@ -16,6 +16,7 @@ import { OverviewPage } from "./pages/Overview";
 import { PredictorPage } from "./pages/Predictor";
 import { ReliabilityPage } from "./pages/Reliability";
 import { SqdPage } from "./pages/Sqd";
+import { TrustPage } from "./pages/Trust";
 import { SweepsPage } from "./pages/Sweeps";
 
 function Page({ route, go }: { route: Route; go: (r: Route) => void }) {
@@ -26,6 +27,8 @@ function Page({ route, go }: { route: Route; go: (r: Route) => void }) {
       return <LeaderboardPage />;
     case "reliability":
       return <ReliabilityPage />;
+    case "trust":
+      return <TrustPage go={go} />;
     case "devices":
       return <DevicesPage />;
     case "curves":

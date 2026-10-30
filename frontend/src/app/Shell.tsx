@@ -11,6 +11,7 @@ const GROUPS: { title: string; items: { id: Route; label: string }[] }[] = [
       { id: "overview", label: "Overview" },
       { id: "leaderboard", label: "Leaderboard" },
       { id: "reliability", label: "Seed reliability" },
+      { id: "trust", label: "Trust report" },
       { id: "devices", label: "Devices" },
     ],
   },

@@ -88,6 +88,15 @@ describe("demo file names", () => {
     expect(demoFile("/api/sqd/options")).toBe("_api_sqd_options.json");
     expect(demoFile("/api/structures")).toBe("_api_structures.json");
   });
+  it("names the trust reports by what picks them out", () => {
+    expect(demoFile("/api/trust/index?source=published")).toBe("_api_trust_index.json");
+    expect(demoFile("/api/trust?kind=vqe&molecule=H2&backend=noisy&device=FakeFez&source=published&n=2")).toBe(
+      "_api_trust_backend=noisy_device=FakeFez_kind=vqe_molecule=H2.json",
+    );
+    expect(demoFile("/api/trust?kind=vqe&molecule=LiH&backend=ideal&device=")).toBe(
+      "_api_trust_backend=ideal_kind=vqe_molecule=LiH.json",
+    );
+  });
   it("maps a run to its own file", () => {
     expect(demoFile("/api/runs/abc123?source=published")).toBe("runs/abc123.json");
   });
