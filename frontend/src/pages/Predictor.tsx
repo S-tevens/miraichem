@@ -37,7 +37,8 @@ function Scatter({ report }: { report: PredictorReport }) {
   const pts = report.points;
   const vals = pts.flatMap((p) => [10 ** p.predicted, 10 ** p.actual]);
   const dom: [number, number] = [10 ** Math.floor(Math.log10(Math.min(...vals))), 10 ** Math.ceil(Math.log10(Math.max(...vals)))];
-  const size = Math.min(width, 520);
+  // Square. Wide only when enlarged (the card itself is narrower), and never taller than the window.
+  const size = Math.min(width, width >= 900 ? 720 : 520, Math.round(window.innerHeight * 0.72));
   const pad = 46;
   const x = log(dom, [pad, size - 14]);
   const y = log(dom, [size - pad, 14]);
@@ -45,7 +46,7 @@ function Scatter({ report }: { report: PredictorReport }) {
   const mols = report.molecules;
   return (
     <div ref={ref} className="chart">
-      <svg width={size} height={size} role="img" aria-label="Predicted against measured error on unseen configurations">
+      <svg width={size} height={size} style={{ margin: "0 auto" }} role="img" aria-label="Predicted against measured error on unseen configurations">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad} x2={size - 14} y1={y(t)} y2={y(t)} className="chart__grid" />

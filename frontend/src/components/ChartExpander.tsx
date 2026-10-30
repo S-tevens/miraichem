@@ -47,7 +47,12 @@ function decorate(root: ParentNode) {
     button.innerHTML = EXPAND_ICON;
     button.setAttribute("aria-label", "Enlarge this chart");
     button.title = "Enlarge";
-    button.addEventListener("click", () => setOpen(el, !el.classList.contains(OPEN)));
+    button.addEventListener("click", (e) => {
+      // Swapping the icon detaches the element that was clicked, so the page-level "click outside"
+      // check below would read this click as outside the sheet and close it again at once.
+      e.stopPropagation();
+      setOpen(el, !el.classList.contains(OPEN));
+    });
     el.appendChild(button);
   });
 }
@@ -70,8 +75,8 @@ export function ChartExpander() {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     const onClick = (e: MouseEvent) => {
       // A click on the dimmed area (the backdrop is the body pseudo-layer) is outside any sheet.
-      const target = e.target as HTMLElement;
-      if (document.body.classList.contains("has-expanded") && !target.closest(`.${OPEN}`)) close();
+      const inside = e.composedPath().some((n) => n instanceof HTMLElement && n.classList.contains(OPEN));
+      if (document.body.classList.contains("has-expanded") && !inside) close();
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("click", onClick);

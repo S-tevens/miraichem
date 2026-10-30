@@ -42,6 +42,7 @@ export function CurvesPage() {
   const [idx, setIdx] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [ref, width] = useWidth<HTMLDivElement>();
+  const [ref2, width2] = useWidth<HTMLDivElement>(); // the second chart measures itself, so it resizes when enlarged
 
   if (q.loading && !q.data) return <div className="page"><Loading /></div>;
   if (q.error) return <div className="page"><Notice tone="bad">{q.error}</Notice></div>;
@@ -65,6 +66,8 @@ export function CurvesPage() {
   const right = 18;
   const w1 = Math.max(280, width);
   const xs = linear([Math.min(...c.bond_lengths), Math.max(...c.bond_lengths)], [left, w1 - right]);
+  const w2 = Math.max(280, width2);
+  const xs2 = linear([Math.min(...c.bond_lengths), Math.max(...c.bond_lengths)], [left, w2 - right]);
 
   const h1 = 280;
   const vqe = c.e_vqe.map((v) => v ?? NaN);
@@ -84,13 +87,13 @@ export function CurvesPage() {
   const yl = log(dom, [h2 - 32, 12]);
   const lt = logTicks(dom).filter((t) => [0.1, 1, 10, 100, 1000].includes(t));
 
-  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const mover = (scale: (v: number) => number) => (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const px = e.clientX - r.left;
     let best = 0;
     let bd = Infinity;
     c.bond_lengths.forEach((b, i) => {
-      const d = Math.abs(xs(b) - px);
+      const d = Math.abs(scale(b) - px);
       if (d < bd) {
         bd = d;
         best = i;
@@ -98,6 +101,8 @@ export function CurvesPage() {
     });
     setHover(best);
   };
+  const onMove = mover(xs);
+  const onMove2 = mover(xs2);
 
   return (
     <div className="page">
@@ -146,33 +151,33 @@ export function CurvesPage() {
       </Panel>
 
       <Panel title="Error" aside="log scale; shaded band is chemical accuracy">
-        <div className="chart curves">
-          <svg width={w1} height={h2} onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img" aria-label="Error against bond length">
-            <rect x={left} y={yl(CHEM_ACC_MHA)} width={w1 - right - left} height={Math.max(0, yl(dom[0]) - yl(CHEM_ACC_MHA))} className="chart__band" />
+        <div ref={ref2} className="chart curves">
+          <svg width={w2} height={h2} onMouseMove={onMove2} onMouseLeave={() => setHover(null)} role="img" aria-label="Error against bond length">
+            <rect x={left} y={yl(CHEM_ACC_MHA)} width={w2 - right - left} height={Math.max(0, yl(dom[0]) - yl(CHEM_ACC_MHA))} className="chart__band" />
             {lt.map((t) => (
               <g key={t}>
-                <line x1={left} x2={w1 - right} y1={yl(t)} y2={yl(t)} className="chart__grid" />
+                <line x1={left} x2={w2 - right} y1={yl(t)} y2={yl(t)} className="chart__grid" />
                 <text x={left - 10} y={yl(t) + 4} textAnchor="end" className="chart__axis num">{t}</text>
               </g>
             ))}
-            <path d={path(c.bond_lengths.map((b, i) => [xs(b), yl(c.hf_error_mha[i])] as [number, number]))} className="cv__line cv__line--hf" />
+            <path d={path(c.bond_lengths.map((b, i) => [xs2(b), yl(c.hf_error_mha[i])] as [number, number]))} className="cv__line cv__line--hf" />
             <path
               d={path(
                 c.bond_lengths
-                  .map((b, i) => [xs(b), yl(Math.max(errs[i], dom[0]))] as [number, number])
+                  .map((b, i) => [xs2(b), yl(Math.max(errs[i], dom[0]))] as [number, number])
                   .filter((_, i) => Number.isFinite(errs[i])),
               )}
               className="cv__line cv__line--vqe"
             />
-            {hover !== null && <line x1={xs(c.bond_lengths[hover])} x2={xs(c.bond_lengths[hover])} y1={10} y2={h2 - 32} className="chart__cross" />}
+            {hover !== null && <line x1={xs2(c.bond_lengths[hover])} x2={xs2(c.bond_lengths[hover])} y1={10} y2={h2 - 32} className="chart__cross" />}
             {linearTicks(c.bond_lengths[0], c.bond_lengths[c.bond_lengths.length - 1], 5).map((t) => (
-              <text key={t} x={xs(t)} y={h2 - 10} textAnchor="middle" className="chart__axis num">{t}</text>
+              <text key={t} x={xs2(t)} y={h2 - 10} textAnchor="middle" className="chart__axis num">{t}</text>
             ))}
-            <text x={w1 - right} y={h2 - 0} textAnchor="end" className="chart__axis">bond length (Å)</text>
+            <text x={w2 - right} y={h2 - 0} textAnchor="end" className="chart__axis">bond length (Å)</text>
             <text x={14} y={h2 / 2} transform={`rotate(-90 14 ${h2 / 2})`} textAnchor="middle" className="chart__axis">error (mHa)</text>
           </svg>
           {hover !== null && (
-            <div className="curves__tip small num" style={{ left: Math.min(xs(c.bond_lengths[hover]), w1 - 210) }}>
+            <div className="curves__tip small num" style={{ left: Math.min(xs2(c.bond_lengths[hover]), w2 - 210) }}>
               <strong>{c.bond_lengths[hover]} Å</strong>
               <br />
               exact {c.e_exact[hover].toFixed(4)} Ha
