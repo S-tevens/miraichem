@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, api, useQuery } from "../api";
 import { useJobs } from "../app/state";
 import { duration } from "../lib/format";
+import { DEMO } from "../lib/demo";
 import { CopyButton, Field, Notice, Panel, Select } from "../ui/ui";
 import type { Job, SqdHardwarePlan, SqdHardwareStatus, SqdOptions } from "../types";
 import "../pages/NewRun.css";
@@ -36,13 +37,13 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
   const [f, setF] = useState<Form>(DEFAULTS);
   const [planJobId, setPlanJobId] = useState<string | null>(null);
   const [runJobId, setRunJobId] = useState<string | null>(null);
-  const [typed, setTyped] = useState("");
+  const [sure, setSure] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => {
     setF((p) => ({ ...p, [k]: v }));
     setPlanJobId(null); // any change makes the old plan stale
-    setTyped("");
+    setSure(false);
   };
 
   const planJob = job(planJobId);
@@ -64,17 +65,18 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
     return (
       <Panel title="Run on real quantum hardware" aside="switched off">
         <p className="small muted" style={{ maxWidth: "70ch" }}>
-          The app cannot use a real quantum computer unless you start it with an explicit opt-in. Restart it like this, then reload
-          this page:
+          {DEMO
+            ? "This is the offline copy, which cannot reach IBM. Run the live app to use real hardware."
+            : "Real hardware is switched off on this server (it was started with --no-allow-hardware or with --allow-remote). Restart it like this, then reload this page:"}
         </p>
-        <code className="code">{cli}</code>
-        <div style={{ marginTop: 8 }}>
-          <CopyButton text={cli} />
-        </div>
-        <p className="small faint" style={{ marginTop: 10, maxWidth: "70ch" }}>
-          Even then, nothing is sent until you make a plan, read its estimated QPU time, and type a confirmation. Needs an IBM token
-          in <code>.env</code>.
-        </p>
+        {!DEMO && (
+          <>
+            <code className="code">{cli}</code>
+            <div style={{ marginTop: 8 }}>
+              <CopyButton text={cli} />
+            </div>
+          </>
+        )}
       </Panel>
     );
   }
@@ -82,12 +84,12 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
   const mols = opts.data?.molecules ?? [];
   const mol = mols.find((m) => m.id === f.molecule);
   const p = plan.data;
-  const canSubmit = !!p && !p.expired && !p.submitted && p.problems.length === 0 && typed.trim() === st.confirm_phrase && !running && !busy;
+  const canSubmit = !!p && !p.expired && !p.submitted && p.problems.length === 0 && !running && !busy;
 
   const makePlan = async () => {
     setBusy(true);
     setErr(null);
-    setTyped("");
+    setSure(false);
     setRunJobId(null);
     try {
       const j = await api.post<Job>("/api/sqd/hardware/plan", {
@@ -112,9 +114,9 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
     setBusy(true);
     setErr(null);
     try {
-      const j = await api.post<Job>("/api/sqd/hardware/run", { plan_id: p.plan_id, confirm: typed });
+      const j = await api.post<Job>("/api/sqd/hardware/run", { plan_id: p.plan_id, confirm: st.confirm_phrase });
       setRunJobId(j.id);
-      setTyped("");
+      setSure(false);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
     } finally {
@@ -129,8 +131,8 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
   return (
     <Panel title="Run on real quantum hardware" aside="uses your IBM QPU time">
       <Notice tone="warn">
-        Real hardware is <strong>enabled</strong> on this server. A run uses your limited IBM quota. Planning is free; nothing is
-        submitted until you type the confirmation. Each run is capped at {st.max_qpu_seconds.toFixed(0)} s of estimated QPU time.
+        Real hardware is <strong>available</strong> on this server. A run uses your limited IBM quota. Planning is free; nothing is
+        submitted until you make a plan and answer &ldquo;are you sure&rdquo;. Each run is capped at {st.max_qpu_seconds.toFixed(0)} s of estimated QPU time.
         {!st.token_configured && " No IBM token was found in .env, so planning will fail."}
       </Notice>
 
@@ -200,15 +202,29 @@ export function SqdHardware({ onFinished }: { onFinished: (hash: string) => void
 
           {!p.expired && !p.submitted && p.problems.length === 0 && !runJob && (
             <div className="form">
-              <Field label={`To submit this to real hardware, type ${st.confirm_phrase}`}>
-                <input className="input" type="text" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={st.confirm_phrase} />
-              </Field>
-              <div className="form__submit">
-                <button type="button" className="btn" disabled={!canSubmit} onClick={submit}>
-                  Submit to real hardware
-                </button>
-                <span className="small muted">The plan is valid for {Math.round(st.plan_valid_seconds / 60)} minutes.</span>
-              </div>
+              {!sure ? (
+                <div className="form__submit">
+                  <button type="button" className="btn" disabled={!canSubmit} onClick={() => setSure(true)}>
+                    Submit to real hardware
+                  </button>
+                  <span className="small muted">The plan is valid for {Math.round(st.plan_valid_seconds / 60)} minutes.</span>
+                </div>
+              ) : (
+                <>
+                  <Notice tone="bad">
+                    <strong>Are you sure?</strong> This sends a job to {p.backend} and uses about {secs(p.estimated_qpu_s)} of your IBM
+                    quantum time. It cannot be undone or refunded.
+                  </Notice>
+                  <div className="form__submit">
+                    <button type="button" className="btn" disabled={!canSubmit} onClick={submit}>
+                      Yes, run it on real hardware
+                    </button>
+                    <button type="button" className="btn" onClick={() => setSure(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
