@@ -379,6 +379,9 @@ export interface SqdRow {
   n_reps: number;
   shots: number;
   readout_noise: number;
+  noise_model: string | null;
+  noise_summary: { backend: string; survival: number; two_qubit_gates: number; median_readout_error: number } | null;
+  spin: number;
   iterations: number;
   samples_per_batch: number;
   num_batches: number;
@@ -416,6 +419,7 @@ export interface SqdGroup {
   n_reps: number;
   shots: number;
   readout_noise: number;
+  noise_model: string | null;
   iterations: number;
   samples_per_batch: number;
   num_batches: number;
@@ -446,20 +450,44 @@ export interface SqdOptions {
     id: string;
     name: string;
     basis: string;
+    spin: number;
+    default_bond_length: number;
     description: string;
     qubits: number;
     determinants: number;
     simulable: boolean;
     has_exact: boolean;
+    exact_cached: boolean;
+    exact_estimate_s: number;
   }[];
+}
+
+export interface StructureOrbital {
+  index: number;
+  energy: number;
+  occupation: number;
+  tag: "HOMO" | "LUMO" | "";
+  pos: { v: number[]; f: number[] };
+  neg: { v: number[]; f: number[] };
+}
+
+export interface Structure {
+  id: string;
+  label: string;
+  kind: "computed" | "schematic";
+  note: string;
+  atoms: [string, number, number, number][];
+  orbitals: StructureOrbital[];
 }
 
 export interface SqdRunRequest {
   molecule: string;
-  bond_length: number;
+  bond_length: number | null;
   n_reps: number;
   shots: number;
   readout_noise: number;
+  noise_model: string | null;
+  exact: boolean;
   iterations: number;
   samples_per_batch: number;
   num_batches: number;

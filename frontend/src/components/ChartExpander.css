@@ -1,0 +1,83 @@
+/* Expand button and the enlarged sheet. See ChartExpander.tsx. */
+
+.chart,
+.strip,
+.lih__chart {
+  position: relative;
+}
+
+.expand-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--fg-2);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chart:hover > .expand-btn,
+.strip:hover > .expand-btn,
+.lih__chart:hover > .expand-btn,
+.expand-btn:focus-visible,
+.is-expanded > .expand-btn {
+  opacity: 1;
+  color: var(--fg);
+}
+
+.expand-btn:hover {
+  border-color: color-mix(in srgb, var(--fg-2) 60%, transparent);
+}
+
+/* The charts' own toolbar sits top-right too; keep it clear of the button. */
+.chart > .chart__tools {
+  padding-right: 34px;
+}
+
+body.has-expanded {
+  overflow: hidden;
+}
+
+body.has-expanded::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  background: rgba(3, 7, 9, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.is-expanded {
+  position: fixed !important;
+  inset: auto 3vw;
+  top: 50%;
+  transform: translateY(-50%);
+  box-sizing: border-box;
+  max-height: 92vh;
+  z-index: 200;
+  overflow: auto;
+  padding: 28px 30px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.is-expanded > .expand-btn {
+  top: 10px;
+  right: 10px;
+}
+
+/* A little more room for text in the enlarged view. */
+.is-expanded svg text {
+  paint-order: stroke;
+}

@@ -9,7 +9,12 @@ export function useWidth<T extends HTMLElement>(fallback = 640): [(el: T | null)
   const [width, setWidth] = useState(fallback);
   useEffect(() => {
     if (!el) return;
-    const update = () => setWidth(Math.max(240, Math.round(el.getBoundingClientRect().width)));
+    // The content width: an element with padding (the enlarged chart sheet) must not draw under it.
+    const update = () => {
+      const cs = getComputedStyle(el);
+      const inner = el.clientWidth - parseFloat(cs.paddingLeft || "0") - parseFloat(cs.paddingRight || "0");
+      setWidth(Math.max(240, Math.round(inner > 0 ? inner : el.getBoundingClientRect().width)));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);

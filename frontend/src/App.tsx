@@ -1,6 +1,7 @@
 import { AppProviders, useSource } from "./app/state";
 import { useRoute, type Route } from "./app/router";
 import { Shell } from "./app/Shell";
+import { ChartExpander } from "./components/ChartExpander";
 import { RunDrawer } from "./components/RunDrawer";
 import { DEMO } from "./lib/demo";
 import { Notice } from "./ui/ui";
@@ -51,6 +52,7 @@ function Frame() {
   const { connected, connectError } = useSource();
   return (
     <Shell route={route} go={go}>
+      <ChartExpander />
       {DEMO && (
         <div className="demo-banner">
           Offline demo: published results only, read-only. Starting runs, sweeps, training and forecasts needs the live app

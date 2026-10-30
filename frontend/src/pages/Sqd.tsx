@@ -6,6 +6,8 @@ import { mha } from "../lib/format";
 import { log, logTicks } from "../lib/scale";
 import { useWidth } from "../lib/hooks";
 import { SqdHardware } from "../components/SqdHardware";
+import { MoleculeViewer } from "../components/MoleculeViewer";
+import { SqdScaling } from "../components/SqdScaling";
 import { duration } from "../lib/format";
 import { Empty, Field, Loading, Notice, PageHead, Panel, Select, Stat } from "../ui/ui";
 import {
@@ -34,7 +36,7 @@ const ha = (e: number | null | undefined) => (e === null || e === undefined ? "n
 const int = (n: number | null | undefined) => (n === null || n === undefined ? "n/a" : n.toLocaleString("en"));
 
 function groupLabel(g: SqdGroup): string {
-  const parts = [`noise ${g.readout_noise}`];
+  const parts = [g.noise_model ? `${g.noise_model} noise model` : `noise ${g.readout_noise}`];
   if (g.samples_per_batch !== 300) parts.push(`${g.samples_per_batch} samples per batch`);
   if (g.iterations !== 3) parts.push(`${g.iterations} ${g.iterations === 1 ? "round" : "rounds"}`);
   if (g.n_reps !== 1) parts.push(`${g.n_reps} circuit layers`);
@@ -48,6 +50,7 @@ function sameGroup(a: SqdRow, g: SqdGroup): boolean {
     a.n_reps === g.n_reps &&
     a.shots === g.shots &&
     a.readout_noise === g.readout_noise &&
+    a.noise_model === g.noise_model &&
     a.iterations === g.iterations &&
     a.samples_per_batch === g.samples_per_batch &&
     a.num_batches === g.num_batches
@@ -65,6 +68,7 @@ function typicalRun(rows: SqdRow[], groups: SqdGroup[]): SqdRow | undefined {
     g.n_reps === DEFAULTS.n_reps &&
     g.shots === DEFAULTS.shots &&
     g.readout_noise === DEFAULTS.readout_noise &&
+    g.noise_model === null &&
     g.iterations === DEFAULTS.iterations &&
     g.samples_per_batch === DEFAULTS.samples_per_batch &&
     g.num_batches === DEFAULTS.num_batches;
@@ -349,9 +353,12 @@ function runLabel(r: SqdRow): string {
   return `${molName(r.molecule)} ${where}: ${score}`;
 }
 
-function simulateSeconds(f: SqdRunRequest): number {
-  return 2 + f.shots / 10000 + f.iterations * f.num_batches * 0.15; // measured: about 3 to 6 s for N2
+/** Measured: 3 to 6 s at 20 qubits, 2 to 5 s at 24, 4 to 19 s at 28, 25 to 60 s at 32. */
+function simulateSeconds(f: SqdRunRequest, determinants: number): number {
+  return 2 + f.shots / 10000 + f.iterations * f.num_batches * 0.15 + determinants * 1.3e-6 * f.n_reps;
 }
+
+const DEVICE_MODELS = ["FakeFez", "FakeSherbrooke", "FakeBrisbane", "FakeKyiv", "FakeTorino"];
 
 function Comparison({ r }: { r: SqdRow }) {
   if (r.error_mha === null) return <GainComparison r={r} />;
@@ -598,10 +605,12 @@ function Strips({ groups }: { groups: SqdGroup[] }) {
 
 const DEFAULTS: SqdRunRequest = {
   molecule: "n2",
-  bond_length: 1.0977,
+  bond_length: null,
   n_reps: 1,
   shots: 20000,
   readout_noise: 0.02,
+  noise_model: null,
+  exact: false,
   iterations: 3,
   samples_per_batch: 300,
   num_batches: 3,
@@ -634,7 +643,7 @@ function RunForm({ onStarted }: { onStarted: (id: string) => void }) {
   };
 
   const num = (k: keyof SqdRunRequest, step?: string) => (
-    <input className="input num" type="number" step={step} value={f[k]} onChange={(e) => set(k, Number(e.target.value) as never)} />
+    <input className="input num" type="number" step={step} value={(f[k] as number | null) ?? ""} onChange={(e) => set(k, Number(e.target.value) as never)} />
   );
   const mol = opts.data?.molecules.find((m) => m.id === f.molecule);
 
@@ -654,8 +663,29 @@ function RunForm({ onStarted }: { onStarted: (id: string) => void }) {
           />
         )}
         <div className="form__row">
-          <Field label="Sampling noise" hint="chance each sampled bit is flipped">{num("readout_noise", "0.01")}</Field>
+          <Select
+            label="Sampling noise"
+            value={f.noise_model ?? ""}
+            onChange={(v) => set("noise_model", v || null)}
+            options={[{ id: "", label: "Uniform bit flips (simple)" }, ...DEVICE_MODELS.map((d) => ({ id: d, label: `${d} calibration (readout and gate errors)` }))]}
+            hint={f.noise_model ? "Per-qubit readout errors and the chance a shot survives every gate, from a fake IBM device. An approximation, not a real device." : "Every sampled bit flips with the same chance."}
+          />
+          <Field label="Bit-flip chance" hint={f.noise_model ? "not used with a device model" : "chance each sampled bit is flipped"}>
+            <input className="input num" type="number" step="0.01" disabled={!!f.noise_model} value={f.readout_noise} onChange={(e) => set("readout_noise", Number(e.target.value))} />
+          </Field>
+        </div>
+        <div className="form__row">
           <Field label="Shots" hint="bitstrings sampled">{num("shots", "1000")}</Field>
+          <Field label="Bond length (Å)" hint={mol ? `empty = ${mol.default_bond_length}` : undefined}>
+            <input
+              className="input num"
+              type="number"
+              step="0.01"
+              placeholder={mol ? String(mol.default_bond_length) : ""}
+              value={f.bond_length ?? ""}
+              onChange={(e) => set("bond_length", e.target.value === "" ? null : Number(e.target.value))}
+            />
+          </Field>
         </div>
         <div className="form__row">
           <Field label="Rounds" hint="recovery and diagonalisation rounds">{num("iterations")}</Field>
@@ -665,12 +695,22 @@ function RunForm({ onStarted }: { onStarted: (id: string) => void }) {
           <Field label="Circuit layers" hint="LUCJ layers">{num("n_reps")}</Field>
           <Field label="Random seed">{num("seed")}</Field>
         </div>
+        {mol && mol.simulable && !mol.has_exact && (
+          <label className="small" style={{ display: "flex", gap: 8, alignItems: "flex-start", maxWidth: "70ch" }}>
+            <input type="checkbox" checked={f.exact} onChange={(e) => set("exact", e.target.checked)} style={{ marginTop: 3 }} />
+            <span>
+              Also solve the exact energy, so the result shows an error and not only the gain over Hartree-Fock. This takes about{" "}
+              {duration(mol.exact_estimate_s)} the first time and is saved, so it never has to run again.
+            </span>
+          </label>
+        )}
+        {mol?.exact_cached && mol.simulable && <p className="small muted">The exact energy for this molecule is already saved, so the result will show an error.</p>}
         <div className="form__submit">
           <button type="button" className="btn" disabled={busy || !!running || mol?.simulable === false} onClick={submit}>
             {running ? "Running…" : "Run SQD"}
           </button>
           <span className="small muted">
-            Estimated time: about {duration(simulateSeconds(f))}. Sampling is simulated and never uses a quantum device.
+            Estimated time: about {duration(simulateSeconds(f, mol?.determinants ?? 14400) + (f.exact && mol && !mol.has_exact ? mol.exact_estimate_s : 0))}. Sampling is simulated and never uses a quantum device.
           </span>
         </div>
         {err && <Notice tone="bad">{err}</Notice>}
@@ -688,6 +728,7 @@ export function SqdPage() {
   const q = useQuery<SqdResponse>(`/api/sqd${qs({ source, n: finishedCount })}`);
   const [sel, setSel] = useState<string | null>(null);
   const [watch, setWatch] = useState<string | null>(null);
+  const [molSel, setMolSel] = useState<string | null>(null);
 
   // when a run started here finishes, switch to your runs and show it
   const watched = job(watch);
@@ -699,8 +740,13 @@ export function SqdPage() {
     }
   }, [watched?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rows = q.data?.runs ?? [];
-  const groups = q.data?.groups ?? [];
+  const allRows = useMemo(() => q.data?.runs ?? [], [q.data]);
+  const allGroups = useMemo(() => q.data?.groups ?? [], [q.data]);
+  const molecules = useMemo(() => [...new Set(allRows.filter((r) => r.status === "ok").map((r) => r.molecule))].sort(), [allRows]);
+  // the molecule shown: the one a selected or just-finished run belongs to, else the user's pick, else N2
+  const molecule = allRows.find((r) => r.hash === sel)?.molecule ?? (molSel && molecules.includes(molSel) ? molSel : molecules.includes("N2") ? "N2" : molecules[0]);
+  const rows = useMemo(() => allRows.filter((r) => r.molecule === molecule), [allRows, molecule]);
+  const groups = useMemo(() => allGroups.filter((g) => g.molecule === molecule), [allGroups, molecule]);
   const run = useMemo(
     () => rows.find((r) => r.hash === sel && r.status === "ok") ?? typicalRun(rows, groups),
     [rows, groups, sel],
@@ -717,6 +763,26 @@ export function SqdPage() {
         sub="Sample-based quantum diagonalization reaches active spaces far beyond the 2 to 6 qubits of VQE: it samples bitstrings from a circuit, repairs them, and solves the molecule exactly inside the small subspace they span."
       />
 
+      {molecules.length > 1 && (
+        <div className="mv__chips" role="tablist" aria-label="Molecule shown" style={{ marginBottom: 14 }}>
+          {molecules.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={m === molecule}
+              className={`mv__chip ${m === molecule ? "is-on" : ""}`}
+              onClick={() => {
+                setSel(null);
+                setMolSel(m);
+              }}
+            >
+              {molName(m)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {run?.hardware ? (
         <Notice tone="warn">
           REAL DEVICE result from {run.hardware.backend}. The bitstrings were sampled on a quantum computer; everything after that
@@ -724,11 +790,16 @@ export function SqdPage() {
         </Notice>
       ) : (
         <Notice tone="warn">
-          The circuit sampling here is <strong>simulated</strong>, with random bit flips standing in for measurement noise. It is not
-          a real device and not a model of one. These runs show the method working at 20 qubits against an exact reference, not a
+          The circuit sampling here is <strong>simulated</strong>.{" "}
+          {run?.noise_model
+            ? `The noise comes from the calibration of a fake IBM device (${run.noise_model}): readout errors per qubit and the chance a shot survives every gate. It approximates a device; it is not one.`
+            : "Random bit flips stand in for measurement noise. They are not a real device and not a model of one."}{" "}
+          These runs show the method working at {run?.qubits ?? 20} qubits {run?.error_mha !== null && run?.error_mha !== undefined ? "against an exact reference" : "without an exact reference"}, not a
           quantum advantage.
         </Notice>
       )}
+
+      <MoleculeViewer focus={molecule} />
 
       {!run ? (
         <Panel>
@@ -784,6 +855,8 @@ export function SqdPage() {
           <Strips groups={groups} />
         </Panel>
       )}
+
+      <SqdScaling rows={allRows} groups={allGroups} />
 
       {!DEMO && <RunForm onStarted={setWatch} />}
       {!DEMO && (

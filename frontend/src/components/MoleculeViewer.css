@@ -1,0 +1,153 @@
+.mv {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .mv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mv__stage {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: radial-gradient(ellipse at 50% 40%, rgba(20, 34, 38, 0.9), rgba(8, 13, 15, 0.95));
+  overflow: hidden;
+}
+
+.mv__canvas {
+  width: 100%;
+  min-height: 200px;
+}
+
+.mv__canvas canvas {
+  display: block;
+  cursor: grab;
+}
+
+.mv__fail {
+  padding: 18px;
+}
+
+.mv__enlarge,
+.mv__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.mv__enlarge:hover,
+.mv__close:hover {
+  color: var(--fg);
+}
+
+.mv__side {
+  display: grid;
+  gap: 12px;
+}
+
+.mv__controls {
+  display: grid;
+  gap: 10px;
+}
+
+.mv__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mv__chip {
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.mv__chip--small {
+  padding: 3px 9px;
+  font-size: 0.78rem;
+}
+
+.mv__chip:hover {
+  color: var(--fg);
+}
+
+.mv__chip.is-on {
+  border-color: color-mix(in srgb, var(--c-vqe) 70%, transparent);
+  background: color-mix(in srgb, var(--c-vqe) 14%, transparent);
+  color: var(--fg);
+}
+
+.mv__caption {
+  max-width: 56ch;
+}
+
+body.has-modal {
+  overflow: hidden;
+}
+
+.mv__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: grid;
+  place-items: center;
+  padding: 3vh 3vw;
+  background: rgba(3, 7, 9, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.mv__sheet {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  width: min(1100px, 100%);
+  max-height: 94vh;
+  overflow: auto;
+  padding: 18px 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.mv__sheethead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  font-size: 1.1rem;
+}
+
+.mv__sheethead .mv__close {
+  top: 0;
+}
+
+.mv__sheet .mv__canvas {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(20, 34, 38, 0.9), rgba(8, 13, 15, 0.95));
+}
+
+.mv__bigcontrols {
+  display: grid;
+}

@@ -1,0 +1,45 @@
+.scl__h {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
+.scl__line {
+  fill: none;
+  stroke: var(--scl);
+  stroke-width: 2;
+}
+
+.scl__dot {
+  fill: var(--scl);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.scl__bar {
+  stroke: var(--scl);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.scl__label {
+  font-size: 12px;
+  fill: var(--scl);
+}
+
+.scl--hf {
+  --scl: var(--c-hf);
+}
+.scl--cc {
+  --scl: #5d93d8;
+}
+.scl--q {
+  --scl: var(--c-vqe);
+}
+.scl--q2 {
+  --scl: #8fe0bd;
+}
+.scl--exact {
+  --scl: var(--c-exact);
+}

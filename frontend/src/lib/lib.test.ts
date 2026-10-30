@@ -86,6 +86,7 @@ describe("demo file names", () => {
   it("names the SQD views", () => {
     expect(demoFile("/api/sqd?source=published&n=2")).toBe("_api_sqd.json");
     expect(demoFile("/api/sqd/options")).toBe("_api_sqd_options.json");
+    expect(demoFile("/api/structures")).toBe("_api_structures.json");
   });
   it("maps a run to its own file", () => {
     expect(demoFile("/api/runs/abc123?source=published")).toBe("runs/abc123.json");
