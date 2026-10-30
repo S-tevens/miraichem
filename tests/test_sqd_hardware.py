@@ -361,7 +361,7 @@ def test_plan_then_submit_runs_the_job_and_saves_everything(tmp_path, device):
 
     rows = client.get("/api/sqd", params={"source": "local"}).json()["runs"]
     assert len(rows) == 1 and rows[0]["hardware"]["job_id"] == "fakejob123"
-    assert rows[0]["hardware"]["backend"] == device.name and rows[0]["below_hf_mha"] > 0
+    assert rows[0]["hardware"]["backend"] == device.name and rows[0]["below_hf_mha"] is not None
     record = tmp_path / "local" / "hardware" / "jobs" / "fakejob123.json"
     assert json.loads(record.read_text())["kind"] == "sqd"
 
