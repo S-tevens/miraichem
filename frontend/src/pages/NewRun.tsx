@@ -251,8 +251,8 @@ function NewRunLive() {
               <span className="small muted">Expected: {estimate(f, ref.data?.n_qubits_jw)}.</span>
             </div>
             <p className="small faint">
-              Real quantum hardware is not started from here. It needs an explicit opt-in, a cost estimate and
-              your confirmation, so it stays in the command line (<code>miraichem hardware</code>).
+              VQE runs on real quantum hardware are not started from here. They need an explicit opt-in, a cost estimate and
+              your confirmation, so they stay in the command line (<code>miraichem hardware</code>). SQD on real hardware is on the SQD page.
             </p>
           </div>
         </Panel>

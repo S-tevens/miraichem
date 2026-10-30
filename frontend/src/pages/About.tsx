@@ -83,7 +83,7 @@ export function AboutPage() {
 
         <Panel title="Safety">
           <ul className="notes">
-            <li>The app only starts simulator work. Real hardware stays in the command line with an opt-in flag, a cost estimate and a confirmation.</li>
+            <li>The app starts simulator work. The one real-hardware path in the app is SQD sampling, on the SQD page: it needs a plan with a cost estimate and an &ldquo;are you sure&rdquo; step, and <code>miraichem serve --no-allow-hardware</code> switches it off. VQE hardware runs stay in the command line with an opt-in flag, a cost estimate and a confirmation.</li>
             <li>The server listens on this computer only, unless you explicitly allow otherwise.</li>
             <li>Every run is saved with its configuration, seed, library versions and code version, so it can be reproduced.</li>
           </ul>

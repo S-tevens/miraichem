@@ -1,8 +1,9 @@
 """The MiraiChem web API: browse results, rank and recommend, and launch simulator runs and sweeps.
 
-Everything here wraps the same tested package the CLI uses. The API only starts simulator work
-(ideal and noisy backends). Real quantum hardware is deliberately not reachable from here: it keeps
-its explicit opt-in, cost estimate and confirmation in the command line (``miraichem hardware``).
+Everything here wraps the same tested package the CLI uses. Runs and sweeps are simulator work
+(ideal and noisy backends). The one real-hardware path is SQD sampling: it needs a plan with a
+cost estimate and a confirmation, and ``miraichem serve --no-allow-hardware`` switches it off.
+VQE hardware runs stay in the command line (``miraichem hardware``).
 """
 
 from __future__ import annotations

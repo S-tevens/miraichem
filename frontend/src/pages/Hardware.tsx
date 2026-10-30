@@ -48,10 +48,11 @@ export function HardwarePage() {
       <div className="grid grid--2">
         <div>
           <p className="small muted" style={{ maxWidth: "58ch" }}>
-            Real quantum time is scarce, so this app never submits to hardware. The command line keeps three
+            Real quantum time is scarce, so these VQE hardware runs are started only from the command line, which keeps three
             safeguards: an explicit <code>--allow-hardware</code> flag, a cost estimate shown first, and a yes/no
             confirmation. Job IDs are saved the moment a job is submitted. The parameters found in simulation are
-            evaluated once per mitigation mode instead of optimising on the device.
+            evaluated once per mitigation mode instead of optimising on the device. SQD runs on real hardware are started from
+            the SQD page, after a plan and an &ldquo;are you sure&rdquo; step.
           </p>
         </div>
         <div>
