@@ -73,9 +73,7 @@ def run_sqd(
         rng = np.random.default_rng(cfg.seed)
         t_sample = time.perf_counter()
         if cfg.sampler != "circuit":
-            matrix, probs = sample_control(
-                problem, cfg.sampler, cfg.shots, cfg.readout_noise, rng
-            )
+            matrix, probs = sample_control(problem, cfg.sampler, cfg.shots, cfg.readout_noise, rng)
         elif cfg.noise_model:
             # A device model also fixes the circuit: only the couplings that fit the device.
             from miraichem.sqd.noise import device_noise
