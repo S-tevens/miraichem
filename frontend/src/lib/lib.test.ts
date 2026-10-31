@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deviceName, mha, parts, pct } from "./format";
 import { demoFile } from "./demo";
+import { buildReportHtml, reportFileName } from "./trustReport";
 import { linear, linearTicks, log, logTicks } from "./scale";
 import type { Config } from "../types";
 
@@ -99,5 +100,39 @@ describe("demo file names", () => {
   });
   it("maps a run to its own file", () => {
     expect(demoFile("/api/runs/abc123?source=published")).toBe("runs/abc123.json");
+  });
+});
+
+describe("trust report file", () => {
+  const report = {
+    kind: "vqe" as const,
+    subject: { molecule: "H2", backend: "noisy", device: "fake_sherbrooke", bond_length: null, label: "SPSA <fast>" },
+    verdict: "not_yet" as const,
+    verdict_text: "Not yet trusted",
+    sentence: "1 of 10 seeds reached chemical accuracy.",
+    evidence: [
+      { id: "seeds", title: "Seeds", status: "pass" as const, detail: "10 seeds.", route: null },
+      { id: "acc", title: "Accuracy", status: "fail" as const, detail: "1 of 10 within 1.6 mHa.", route: null },
+    ],
+    rules: ["Fewer than 3 seeds is not enough evidence."],
+  };
+
+  it("builds a self-contained document with the sections of a short paper", () => {
+    const html = buildReportHtml(report, "H2, VQE", new Date("2026-10-31T00:00:00Z"));
+    for (const h of ["Summary", "1. Method", "2. Evidence", "3. How the verdict is decided", "4. Limitations"]) {
+      expect(html).toContain(h);
+    }
+    expect(html).toContain("Not yet trusted");
+    expect(html).toContain("2026-10-31");
+    expect(html).toContain("1 passed, 1 failed");
+    expect(html).not.toContain("<script");
+  });
+
+  it("escapes text taken from the report", () => {
+    expect(buildReportHtml(report, "H2, VQE", new Date())).toContain("SPSA &lt;fast&gt;");
+  });
+
+  it("names the file after the subject", () => {
+    expect(reportFileName("H₂, VQE, noisy")).toBe("miraichem-trust-report-h-vqe-noisy.html");
   });
 });

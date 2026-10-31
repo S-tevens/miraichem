@@ -3,6 +3,7 @@ import { qs, useQuery } from "../api";
 import { useJobs, useSource } from "../app/state";
 import type { Route } from "../app/router";
 import { deviceName, moleculeName } from "../lib/format";
+import { downloadReport } from "../lib/trustReport";
 import { Empty, Loading, Notice, PageHead, Panel, Select } from "../ui/ui";
 import type { TrustReport, TrustStatus, TrustSubject } from "../types";
 import "./Trust.css";
@@ -108,8 +109,8 @@ export function TrustPage({ go }: { go: (r: Route) => void }) {
             <p className="small muted" style={{ maxWidth: "76ch" }}>{report.data.sentence}</p>
             {report.data.subject.label && <p className="trust__setup">Recommended setup: {report.data.subject.label}</p>}
             <div className="no-print" style={{ marginTop: 6 }}>
-              <button type="button" className="btn btn--ghost btn--small" onClick={() => window.print()}>
-                Print this report
+              <button type="button" className="btn btn--ghost btn--small" onClick={() => downloadReport(report.data!, subjectLabel(current))}>
+                Download the report
               </button>
             </div>
           </section>
