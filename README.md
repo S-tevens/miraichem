@@ -782,5 +782,5 @@ beats that.
 |---|---|---|
 | Stevens | [@S-tevens](https://github.com/S-tevens) | Chemistry and Hamiltonian, ranking, dissociation curves, web app |
 | Jeeva | [@jeev-69](https://github.com/jeev-69) | Ansatz, optimizers, LiH verification |
-| Ritesh | [@ritesh9116](https://github.com/ritesh9116) | Noisy backend, mitigation, real-hardware runs |
+| Ritesh | [@ritesh9116](https://github.com/ritesh9116) | Testing and demo preparation: walking through the app and reporting issues, slide screenshots, checking references |
 | Rohith | [@rohithrajha](https://github.com/rohithrajha) | Sweep engine, CLI, report, documentation |
