@@ -438,7 +438,7 @@ How to read this honestly:
   samples are so spread out that the subspace covers all 14,400 determinants and SQD becomes exact
   diagonalisation: that size cannot test noise robustness. At 24, 28 and 32 qubits it gives about 5,
   20 to 24, and 42 to 51 mHa, worse than the uniform bit flips at the larger sizes.
-- Everything above is simulated sampling. Four real-hardware SQD runs are published (the SQD page shows each
+- Everything above is simulated sampling. Five real-hardware SQD runs are published (the SQD page shows each
   next to an ideal simulation of the same circuit):
 
   | IBM job | Device | Qubits | Error vs exact | Space solved | Ideal circuit (same gates) |
@@ -446,16 +446,18 @@ How to read this honestly:
   | `dbibe2o1h92s73834cvg` | `ibm_fez` | 20 | 0.057 mHa | 68% | 45.9 mHa, 15 distinct bitstrings |
   | `dbidbb6ne4hc73bebir0` | `ibm_fez` | 20 | 0.0022 mHa | 77% | 54.1 mHa, 12 distinct bitstrings |
   | `dbide1ene4hc73beboog` | `ibm_kingston` | 20 | 0.0011 mHa | 72% | 54.1 mHa, 12 distinct bitstrings |
+  | `dbijilg1h92s7383jvq0` | `ibm_fez` | 20 (bond stretched to 2.0 A) | 0.123 mHa | 59% | 85.7 mHa, 38 distinct bitstrings |
   | `dbiefoo1h92s7383a180` | `ibm_fez` | 52 (N2, cc-pVDZ) | no exact energy | 0.0065% | cannot be simulated |
 
   Each 20-qubit run used about 5 s of QPU time. The device's noise spread the samples over thousands of
-  bitstrings (the ideal circuit gives 12 to 15), so each solve covered most of the 14,400 determinants and
+  bitstrings (the ideal circuit gives 12 to 38), so each solve covered most of the 14,400 determinants and
   was close to exact diagonalisation: these runs show the hardware path works end to end, not that SQD
   tolerates noise at scale or beats classical methods. The 52-qubit run (1,948 two-qubit gates) returned
   10,000 distinct bitstrings from 10,000 shots, which is noise; its energy is 169.5 mHa below
   Hartree-Fock and 139.8 mHa above the CCSD energy. It shows a 52-qubit job runs end to end, nothing more.
-  A planned real run at a stretched bond (N2 at 2.0 A, 258 two-qubit gates, about 8 s of QPU time) has not
-  been run.
+  The stretched-bond run (N2 at 2.0 A, 258 two-qubit gates, 5.0 s of QPU time) ended 0.123 mHa from exact,
+  where CCSD is 101.8 mHa off. It solved 59% of the space, so it is close to exact diagonalisation too; it
+  shows the hardware path works at a stretched bond, not that the device's samples are what fixed CCSD's error.
 
 #### Stretched bonds: where coupled cluster breaks down
 
@@ -742,7 +744,7 @@ beats that.
 
 ## 9. Roadmap
 
-- **SQD on real hardware:** three 20-qubit runs and one 52-qubit run are done and published. Next: a real run at a stretched bond (planned, not run), and repeats for error bars. The 52-qubit result was noise, so a useful run at that size needs fewer gates or a better layout.
+- **SQD on real hardware:** four 20-qubit runs (one at a stretched bond) and one 52-qubit run are done and published. Next: repeats for error bars. The 52-qubit result was noise, so a useful run at that size needs fewer gates or a better layout.
 - Larger active spaces for SQD: iron-sulfur clusters (for example FeS4, [2Fe-2S] and [4Fe-4S], shown in 3D as idealised shapes only), which needs their geometries and active-space integrals from the literature and has no classical reference at that size.
 - Understand why SQD loses accuracy as the molecule grows (more samples per batch did not close the gap) and why a second circuit layer hurts NO; more open-shell systems beyond O2 and NO.
 - A gate-level device-noise simulation for SQD sampling (the current model is an approximation), a hand-built zig-zag qubit layout for the hardware circuit, and extending the error predictor to SQD.
