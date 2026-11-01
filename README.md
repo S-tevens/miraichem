@@ -2,6 +2,10 @@
 
 **Team Mirai · Q-Hack India 2026 · Track: Quantum Biotech & Chemistry**
 
+**Winner of the Quantum Innovation award at Q-Hack India 2026.**
+
+Live app: https://miraichem.onrender.com (read the published results; real hardware is switched off there).
+
 [![CI](https://github.com/S-tevens/miraichem/actions/workflows/ci.yml/badge.svg)](https://github.com/S-tevens/miraichem/actions/workflows/ci.yml)
 
 MiraiChem is an automated benchmarking and recommendation pipeline that finds the most reliable
@@ -775,7 +779,7 @@ beats that.
 
 ## 11. Team
 
-**Team Mirai**, Q-Hack India 2026 (Quantum Biotech & Chemistry track). Areas of focus, from
+**Team Mirai**, Q-Hack India 2026 (Quantum Biotech & Chemistry track), winner of the Quantum Innovation award. Areas of focus, from
 [docs/TEAM_TASKS.md](docs/TEAM_TASKS.md):
 
 | Member | GitHub | Area |
